@@ -1,0 +1,44 @@
+{% extends "base.html" %}
+{% block title %}Settings — koha-triage{% endblock %}
+
+{% block content %}
+<section>
+  <h2>Your settings</h2>
+  <p class="muted">Logged in as <strong>{{ user.name or user.email }}</strong> ({{ user.email }})</p>
+</section>
+
+{% if saved %}
+<div class="success-flash">Settings saved.</div>
+{% endif %}
+
+<section>
+  <h3>GitHub integration</h3>
+  <p class="muted">Optional: a GitHub token lets the code generator fetch file contents from the Koha GitHub mirror. The token only needs <code>public_repo</code> read scope (raises rate limits from 60/hr to 5000/hr).</p>
+
+  <form action="/settings" method="post" class="settings-form">
+    <label>
+      <span>GitHub Personal Access Token</span>
+      <input type="password" name="github_token"
+             placeholder="ghp_... or github_pat_..."
+             value="{{ current_settings.github_token or '' }}" />
+      {% if token_display %}
+      <span class="muted">Current: {{ token_display }}</span>
+      {% endif %}
+    </label>
+
+    <button type="submit" class="btn-primary">Save settings</button>
+  </form>
+</section>
+
+<section>
+  <h3>Patch workflow</h3>
+  <p>Koha does not accept pull requests. Instead:</p>
+  <ol class="help-list">
+    <li>Generate a code fix on any bug detail page</li>
+    <li>Download the <code>.patch</code> file</li>
+    <li>Apply locally: <code>git am bug_XXXXX.patch</code></li>
+    <li>Review, test, and adjust as needed</li>
+    <li>Attach to Bugzilla: <code>git bz attach XXXXX HEAD</code></li>
+  </ol>
+</section>
+{% endblock %}

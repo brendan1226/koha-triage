@@ -1,0 +1,74 @@
+{% extends "base.html" %}
+
+{% block content %}
+<section class="search-form">
+  <h2>Ask a question</h2>
+  <form action="/search" method="get">
+    <input
+      type="text"
+      name="q"
+      placeholder='e.g. "holds not being filled when item is returned"'
+      autofocus
+      required
+    />
+    <button type="submit">Search</button>
+  </form>
+  <p class="search-help">
+    {% if has_anthropic_key %}
+    Each search is ranked by semantic similarity and classified by Claude with a verdict and suggested action per match.
+    {% else %}
+    <em>Set <code>KOHA_TRIAGE_ANTHROPIC_API_KEY</code> in <code>.env</code> to enable Claude-generated verdicts.</em>
+    {% endif %}
+  </p>
+</section>
+
+<section class="status">
+  <h2>Harvest status</h2>
+  <div class="stat-cards">
+    <div class="stat-card">
+      <div class="stat-value">{{ total_bugs }}</div>
+      <div class="stat-label">Total bugs</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-value">{{ open_bugs }}</div>
+      <div class="stat-label">Open</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-value">{{ embedded_count }}</div>
+      <div class="stat-label">Embedded</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-value">{{ total_comments }}</div>
+      <div class="stat-label">Comments</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-value stat-date">{{ harvest.last_harvested_at[:10] if harvest else "never" }}</div>
+      <div class="stat-label">Last harvested</div>
+    </div>
+  </div>
+</section>
+
+{% if components %}
+<section>
+  <h2>Top components</h2>
+  <table>
+    <thead>
+      <tr>
+        <th>Component</th>
+        <th class="num">Total</th>
+        <th class="num">Open</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for c in components %}
+      <tr>
+        <td><a href="/bugs?component={{ c.component }}">{{ c.component }}</a></td>
+        <td class="num">{{ c.cnt }}</td>
+        <td class="num">{{ c.open_cnt or 0 }}</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</section>
+{% endif %}
+{% endblock %}

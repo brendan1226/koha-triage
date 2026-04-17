@@ -1,0 +1,93 @@
+{% extends "base.html" %}
+{% block title %}Bugs — koha-triage{% endblock %}
+
+{% block content %}
+<section>
+  <h2>All bugs ({{ total }})</h2>
+
+  <form class="filter-bar" action="/bugs" method="get">
+    <select name="component">
+      <option value="">All components</option>
+      {% for c in component_options %}
+      <option value="{{ c }}" {% if c == filter_component %}selected{% endif %}>{{ c }}</option>
+      {% endfor %}
+    </select>
+    <select name="status">
+      <option value="" {% if filter_status == '' %}selected{% endif %}>All statuses</option>
+      <option value="open" {% if filter_status == 'open' %}selected{% endif %}>Open</option>
+      <option value="closed" {% if filter_status == 'closed' %}selected{% endif %}>Resolved/Closed</option>
+    </select>
+    <select name="severity">
+      <option value="">All severities</option>
+      {% for s in ["blocker","critical","major","normal","minor","trivial","enhancement"] %}
+      <option value="{{ s }}" {% if s == filter_severity %}selected{% endif %}>{{ s }}</option>
+      {% endfor %}
+    </select>
+    <input type="text" name="q" value="{{ filter_q }}" placeholder="Search summaries..." />
+    <button type="submit">Filter</button>
+  </form>
+</section>
+
+<section>
+  {% if bugs %}
+  <table class="issue-table">
+    <thead>
+      <tr>
+        <th class="num">Bug</th>
+        <th>Summary</th>
+        <th>Status</th>
+        <th>Component</th>
+        <th>Severity</th>
+        <th>Creator</th>
+        <th>Updated</th>
+        <th>Group</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for b in bugs %}
+      <tr>
+        <td class="num"><a href="{{ b.url }}">{{ b.bug_id }}</a></td>
+        <td><a href="/bugs/{{ b.id }}">{{ b.summary }}</a></td>
+        <td>
+          <span class="tag status-{{ b.status|lower }}">{{ b.status }}</span>
+          {% if b.resolution %}<span class="tag">{{ b.resolution }}</span>{% endif %}
+        </td>
+        <td class="repo-cell">{{ b.component }}</td>
+        <td class="repo-cell">{{ b.severity }}</td>
+        <td class="repo-cell">{{ b.creator }}</td>
+        <td class="date-cell">{{ b.last_change_time[:10] }}</td>
+        <td>
+          {% if groups %}
+          <form action="/bugs/{{ b.id }}/add-to-group" method="post" class="inline-form">
+            <select name="group_id">
+              {% for g in groups %}
+              <option value="{{ g.id }}">{{ g.name }}</option>
+              {% endfor %}
+            </select>
+            <button type="submit" class="btn-sm">+</button>
+          </form>
+          {% else %}
+          <a href="/groups" class="muted-link">create group</a>
+          {% endif %}
+        </td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+
+  {% if total_pages > 1 %}
+  <div class="pagination">
+    {% if page > 1 %}
+    <a href="/bugs?component={{ filter_component }}&status={{ filter_status }}&severity={{ filter_severity }}&q={{ filter_q }}&page={{ page - 1 }}">← Prev</a>
+    {% endif %}
+    <span>Page {{ page }} of {{ total_pages }}</span>
+    {% if page < total_pages %}
+    <a href="/bugs?component={{ filter_component }}&status={{ filter_status }}&severity={{ filter_severity }}&q={{ filter_q }}&page={{ page + 1 }}">Next →</a>
+    {% endif %}
+  </div>
+  {% endif %}
+  {% else %}
+  <p class="empty">No bugs match the current filters.</p>
+  {% endif %}
+</section>
+{% endblock %}

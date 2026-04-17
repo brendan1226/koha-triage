@@ -1,0 +1,42 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>{% block title %}koha-triage{% endblock %}</title>
+  <link rel="stylesheet" href="/static/styles.css" />
+</head>
+<body>
+  <nav class="topnav">
+    <div class="nav-inner">
+      <a href="/" class="nav-brand">
+        <span class="brand-icon">K</span>
+        <span class="brand-text">koha-triage</span>
+      </a>
+      <div class="nav-links">
+        <a href="/">Dashboard</a>
+        <a href="/bugs">Bugs</a>
+        <a href="/groups">Groups</a>
+        <a href="/search">Search</a>
+        <a href="/settings">Settings</a>
+      </div>
+      {% if request.state.user %}
+      <div class="nav-user">
+        <span class="user-name">{{ request.state.user.name or request.state.user.email }}</span>
+        <a href="/logout" class="nav-logout">Logout</a>
+      </div>
+      {% endif %}
+    </div>
+  </nav>
+  <main>
+    {% block content %}{% endblock %}
+  </main>
+  <footer>
+    <p>
+      <a href="https://github.com/brendan1226/koha-triage">Source</a>
+      · v0.0.1
+      · <a href="https://bugs.koha-community.org/bugzilla3/">Koha Bugzilla</a>
+    </p>
+  </footer>
+</body>
+</html>

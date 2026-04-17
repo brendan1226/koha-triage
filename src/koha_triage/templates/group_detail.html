@@ -1,0 +1,56 @@
+{% extends "base.html" %}
+{% block title %}{{ group.name }} — koha-triage{% endblock %}
+
+{% block content %}
+<section>
+  <p class="breadcrumb">
+    <a href="/groups">Groups</a> › {{ group.name }}
+  </p>
+
+  <div class="issue-header">
+    <h2>{{ group.name }}</h2>
+    {% if group.description %}
+    <p class="muted">{{ group.description }}</p>
+    {% endif %}
+  </div>
+</section>
+
+<section>
+  <h3>Members ({{ members|length }})</h3>
+  {% if members %}
+  <table class="issue-table">
+    <thead>
+      <tr>
+        <th class="num">Bug</th>
+        <th>Summary</th>
+        <th>Status</th>
+        <th>Component</th>
+        <th>Added</th>
+        <th></th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for m in members %}
+      <tr>
+        <td class="num"><a href="{{ m.url }}">{{ m.bug_id }}</a></td>
+        <td><a href="/bugs/{{ m.id }}">{{ m.summary }}</a></td>
+        <td>
+          <span class="tag status-{{ m.status|lower }}">{{ m.status }}</span>
+          {% if m.resolution %}<span class="tag">{{ m.resolution }}</span>{% endif %}
+        </td>
+        <td class="repo-cell">{{ m.component }}</td>
+        <td class="date-cell">{{ m.added_at[:10] }}</td>
+        <td>
+          <form action="/groups/{{ group.id }}/members/{{ m.id }}/remove" method="post" class="inline-form">
+            <button type="submit" class="btn-remove" title="Remove from group">×</button>
+          </form>
+        </td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  {% else %}
+  <p class="empty">No bugs in this group yet. Browse <a href="/bugs">all bugs</a> and add them here.</p>
+  {% endif %}
+</section>
+{% endblock %}

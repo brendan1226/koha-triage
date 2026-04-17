@@ -1,0 +1,154 @@
+{% extends "base.html" %}
+{% block title %}Bug {{ bug.bug_id }} — koha-triage{% endblock %}
+
+{% block content %}
+{% if error %}
+<div class="error-flash">{{ error }}</div>
+{% endif %}
+<section>
+  <p class="breadcrumb">
+    <a href="/bugs">Bugs</a> ›
+    Bug {{ bug.bug_id }}
+  </p>
+  <div class="issue-header">
+    <h2>{{ bug.summary }}</h2>
+    <div class="issue-meta">
+      <span class="tag status-{{ bug.status|lower }}">{{ bug.status }}</span>
+      {% if bug.resolution %}<span class="tag">{{ bug.resolution }}</span>{% endif %}
+      <span class="tag">{{ bug.component }}</span>
+      {% if bug.severity %}<span class="tag">{{ bug.severity }}</span>{% endif %}
+      {% for kw in keywords %}<span class="tag label-tag">{{ kw }}</span>{% endfor %}
+      <span class="muted">by {{ bug.creator or "unknown" }} · {{ bug.creation_time[:10] }}</span>
+      <a href="{{ bug.url }}" class="gh-link">View on Bugzilla ↗</a>
+    </div>
+  </div>
+</section>
+
+<section class="issue-body">
+  <h3>Description</h3>
+  {% if bug.description %}<div class="body-text">{{ bug.description }}</div>
+  {% else %}<p class="empty">(no description)</p>{% endif %}
+</section>
+
+{% if comments %}
+<section>
+  <h3>Comments ({{ comments|length }})</h3>
+  {% for c in comments %}
+  <div class="comment">
+    <div class="comment-header"><strong>{{ c.author or "unknown" }}</strong> <span class="muted">{{ c.creation_time[:10] }}</span></div>
+    <div class="comment-body">{{ c.body }}</div>
+  </div>
+  {% endfor %}
+</section>
+{% endif %}
+
+<section>
+  <h3>Groups</h3>
+  {% if memberships %}
+  <div class="group-chips">
+    {% for m in memberships %}
+    <span class="group-chip">
+      <a href="/groups/{{ m.id }}">{{ m.name }}</a>
+      <form action="/groups/{{ m.id }}/members/{{ bug.id }}/remove" method="post" class="inline-form">
+        <button type="submit" class="btn-remove" title="Remove from group">×</button>
+      </form>
+    </span>
+    {% endfor %}
+  </div>
+  {% else %}<p class="muted">Not in any group yet.</p>{% endif %}
+  {% if all_groups %}
+  <form action="/bugs/{{ bug.id }}/add-to-group" method="post" class="add-to-group-form">
+    <select name="group_id">{% for g in all_groups %}<option value="{{ g.id }}">{{ g.name }}</option>{% endfor %}</select>
+    <button type="submit" class="btn-sm">Add to group</button>
+  </form>
+  {% else %}<p><a href="/groups">Create a group first</a></p>{% endif %}
+</section>
+
+{# ── AI Recommendation ── #}
+<section class="recommendation-section">
+  <h3>AI Recommendation</h3>
+  {% if rec %}
+  <div class="rec-card">
+    <div class="rec-header">
+      <span class="rec-complexity complexity-{{ rec.complexity }}">{{ rec.complexity }}</span>
+      {% if rec.needs_db_update %}<span class="tag label-tag">needs DB update</span>{% endif %}
+      <span class="muted rec-meta">{{ rec_meta.model }} · {{ rec_meta.created_at[:10] }}</span>
+    </div>
+    <div class="rec-field"><strong>Summary</strong><p>{{ rec.summary }}</p></div>
+    <div class="rec-field"><strong>Fix approach</strong><p>{{ rec.fix_approach }}</p></div>
+    <div class="rec-cols">
+      <div class="rec-field"><strong>Affected areas</strong><ul>{% for a in rec.affected_areas %}<li>{{ a }}</li>{% endfor %}</ul></div>
+      <div class="rec-field"><strong>Likely files</strong><ul>{% for f in rec.likely_files %}<li><code>{{ f }}</code></li>{% endfor %}</ul></div>
+    </div>
+    <div class="rec-field"><strong>Key guidelines</strong>
+      <div class="guideline-chips">{% for g in rec.key_guidelines %}<span class="guideline-chip">{{ g }}</span>{% endfor %}</div>
+    </div>
+    <div class="rec-field"><strong>Test plan</strong><p>{{ rec.test_plan }}</p></div>
+    <div class="rec-field"><strong>Branch name</strong> <code>{{ rec.suggested_branch_name }}</code></div>
+    <div class="rec-actions">
+      <form action="/bugs/{{ bug.id }}/recommend" method="post" class="inline-form">
+        <button type="submit" class="btn-secondary">↻ Regenerate</button>
+      </form>
+    </div>
+  </div>
+  {% elif has_anthropic_key %}
+  <p class="muted">No recommendation yet.</p>
+  <form action="/bugs/{{ bug.id }}/recommend" method="post">
+    <button type="submit" class="btn-primary">Generate AI recommendation</button>
+  </form>
+  {% else %}
+  <p class="muted">Set <code>KOHA_TRIAGE_ANTHROPIC_API_KEY</code> to enable.</p>
+  {% endif %}
+</section>
+
+{# ── Code Fix ── #}
+{% if rec %}
+<section class="code-section">
+  <h3>Code Fix</h3>
+  {% if code_fixes %}
+  <div class="fix-meta">
+    <span class="muted">{{ fix_meta.model }} · {{ fix_meta.created_at[:10] }}</span>
+    {% if fix_meta.patch_data %}
+    <a href="/bugs/{{ bug.id }}/patch" class="pr-link">Download patch</a>
+    {% endif %}
+  </div>
+  <p><strong>Commit message:</strong> <code>{{ fix_meta.commit_message }}</code></p>
+
+  {% for fix in code_fixes %}
+  <div class="file-fix">
+    <div class="file-fix-header">
+      <code class="file-path">{{ fix.file_path }}</code>
+      <span class="muted">{{ fix.explanation }}</span>
+    </div>
+    {% if fix.diff_lines %}
+    <div class="diff-view">
+      {% for line in fix.diff_lines %}
+      <div class="diff-line diff-{{ line.type }}">{{ line.text }}</div>
+      {% endfor %}
+    </div>
+    {% else %}
+    <p class="muted">(no changes detected)</p>
+    {% endif %}
+  </div>
+  {% endfor %}
+
+  <div class="fix-actions">
+    <form action="/bugs/{{ bug.id }}/generate-fix" method="post" class="inline-form">
+      <button type="submit" class="btn-secondary">↻ Regenerate code</button>
+    </form>
+    {% if fix_meta.patch_data %}
+    <a href="/bugs/{{ bug.id }}/patch" class="btn-primary" style="text-decoration:none">Download patch for git bz attach</a>
+    {% endif %}
+  </div>
+
+  {% elif has_anthropic_key and has_github_token %}
+  <p class="muted">Generate a code fix based on the recommendation above.</p>
+  <form action="/bugs/{{ bug.id }}/generate-fix" method="post">
+    <button type="submit" class="btn-primary">Generate code fix</button>
+  </form>
+  {% else %}
+  <p class="muted">Set <code>KOHA_TRIAGE_ANTHROPIC_API_KEY</code> and optionally <code>KOHA_TRIAGE_GITHUB_TOKEN</code> to enable code generation.</p>
+  {% endif %}
+</section>
+{% endif %}
+{% endblock %}

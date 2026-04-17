@@ -1,0 +1,36 @@
+{% extends "base.html" %}
+{% block title %}Groups — koha-triage{% endblock %}
+
+{% block content %}
+<section>
+  <h2>Bug groups</h2>
+  <p class="muted">Manually cluster related bugs — for cases the AI search didn't catch.</p>
+
+  <form action="/groups" method="post" class="create-group-form">
+    <input type="text" name="name" placeholder="Group name..." required />
+    <input type="text" name="description" placeholder="Short description (optional)" />
+    <button type="submit">Create group</button>
+  </form>
+</section>
+
+<section>
+  {% if groups %}
+  <div class="group-cards">
+    {% for g in groups %}
+    <a href="/groups/{{ g.id }}" class="group-card">
+      <h3>{{ g.name }}</h3>
+      {% if g.description %}
+      <p class="group-desc">{{ g.description }}</p>
+      {% endif %}
+      <div class="group-card-meta">
+        <span>{{ g.member_count }} bug{{ "s" if g.member_count != 1 else "" }}</span>
+        <span class="muted">updated {{ g.updated_at[:10] }}</span>
+      </div>
+    </a>
+    {% endfor %}
+  </div>
+  {% else %}
+  <p class="empty">No groups yet. Create one above to start clustering related bugs.</p>
+  {% endif %}
+</section>
+{% endblock %}
