@@ -38,6 +38,33 @@ def harvest(
 
 
 @app.command()
+def backfill(
+    batch_size: int = typer.Option(100, "--batch-size", help="Bugs per batch."),
+    delay: float = typer.Option(2.0, "--delay", help="Seconds to pause between batches."),
+) -> None:
+    """Backfill descriptions and comments for bugs that don't have them yet.
+
+    Processes in small batches with pauses to avoid overwhelming Bugzilla.
+    Safe to interrupt — progress is saved after each batch.
+    """
+    from .harvest import backfill_comments
+
+    def on_progress(done: int, total: int, comments: int) -> None:
+        if done % 10 == 0 or done == total:
+            console.print(f"  {done}/{total} bugs processed, {comments} comments saved", style="dim")
+
+    console.print(f"[cyan]Backfilling comments (batch_size={batch_size}, delay={delay}s)...[/cyan]")
+    counts = backfill_comments(settings.db_path, batch_size=batch_size, delay=delay, on_progress=on_progress)
+    console.print(
+        f"  Processed {counts['processed']} bugs in {counts['batches']} batches, "
+        f"{counts['comments']} comments saved"
+    )
+    if counts["failed"]:
+        console.print(f"  [yellow]{counts['failed']} bugs failed — re-run to retry[/yellow]")
+    console.print("[green]Done.[/green]")
+
+
+@app.command()
 def status() -> None:
     """Show current harvest state."""
     init_db(settings.db_path)

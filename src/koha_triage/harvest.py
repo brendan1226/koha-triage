@@ -1,5 +1,6 @@
 """Harvest bugs and comments from the Koha community Bugzilla."""
 
+import time
 from datetime import datetime, timezone, timedelta
 from pathlib import Path
 from typing import Callable, Optional
@@ -70,36 +71,27 @@ def _fetch_bugs(
     return all_bugs
 
 
-def _fetch_bug_description(client: httpx.Client, bug_id: int) -> str:
-    """Fetch comment 0 (the description) for a single bug."""
-    resp = client.get(f"/bug/{bug_id}/comment")
-    resp.raise_for_status()
-    data = resp.json()
-    comments = data.get("bugs", {}).get(str(bug_id), {}).get("comments", [])
-    if comments:
-        return comments[0].get("text", "")
-    return ""
-
-
-def _fetch_comments_batch(
-    client: httpx.Client,
-    bug_ids: list[int],
-    on_page: Optional[Callable[[int, int], None]] = None,
-) -> dict[int, list[dict]]:
-    """Fetch comments for a batch of bugs. Returns {bug_id: [comments]}."""
-    result: dict[int, list[dict]] = {}
-    for i, bug_id in enumerate(bug_ids):
+def _fetch_comments_with_retry(
+    client: httpx.Client, bug_id: int, max_retries: int = 3
+) -> list[dict]:
+    """Fetch comments for a single bug with retry + backoff."""
+    for attempt in range(max_retries):
         try:
             resp = client.get(f"/bug/{bug_id}/comment")
             resp.raise_for_status()
             data = resp.json()
-            comments = data.get("bugs", {}).get(str(bug_id), {}).get("comments", [])
-            result[bug_id] = comments
+            return data.get("bugs", {}).get(str(bug_id), {}).get("comments", [])
+        except (httpx.RemoteProtocolError, httpx.ReadTimeout, httpx.ConnectError) as e:
+            if attempt < max_retries - 1:
+                wait = 5 * (attempt + 1)
+                print(f"    Retry {attempt + 1}/{max_retries} for bug {bug_id} after {wait}s ({e})", flush=True)
+                time.sleep(wait)
+            else:
+                print(f"    Failed to fetch comments for bug {bug_id} after {max_retries} attempts", flush=True)
+                return []
         except httpx.HTTPStatusError:
-            result[bug_id] = []
-        if on_page is not None and (i + 1) % 50 == 0:
-            on_page(i + 1, len(bug_ids))
-    return result
+            return []
+    return []
 
 
 def upsert_bug(conn, bug: dict, description: str, harvested_at: str) -> int:
@@ -210,25 +202,6 @@ def harvest(
                 else:
                     counts["updated_bugs"] += 1
 
-        print(f"  Fetching comments for {len(bugs)} bugs...", flush=True)
-        bug_ids = [b["id"] for b in bugs]
-        all_comments = _fetch_comments_batch(client, bug_ids, on_page=on_comments)
-
-        with connect(db_path) as conn:
-            for bz_bug_id, comments in all_comments.items():
-                internal_id = bug_id_map.get(bz_bug_id)
-                if internal_id is None:
-                    continue
-                if comments:
-                    description = comments[0].get("text", "")
-                    conn.execute(
-                        "UPDATE bugs SET description = ? WHERE id = ?",
-                        (description, internal_id),
-                    )
-                for comment in comments[1:]:
-                    upsert_comment(conn, internal_id, comment)
-                    counts["comments"] += 1
-
             conn.execute(
                 """
                 INSERT INTO harvest_state (id, last_harvested_at, total_bugs)
@@ -239,5 +212,76 @@ def harvest(
                 """,
                 (new_harvested_at, counts["bugs"]),
             )
+
+    return counts
+
+
+def backfill_comments(
+    db_path: Path,
+    batch_size: int = 100,
+    delay: float = 2.0,
+    on_progress: Optional[Callable[[int, int, int], None]] = None,
+) -> dict:
+    """Backfill descriptions and comments for bugs that don't have them yet.
+
+    Processes in small batches with a delay between each batch to avoid
+    overwhelming Bugzilla. Saves after each batch so progress is never lost.
+    """
+    init_db(db_path)
+    counts = {"processed": 0, "comments": 0, "batches": 0, "failed": 0}
+
+    with connect(db_path) as conn:
+        pending = conn.execute(
+            """
+            SELECT id, bug_id FROM bugs
+            WHERE description IS NULL OR description = ''
+            ORDER BY bug_id
+            """
+        ).fetchall()
+
+    total = len(pending)
+    if total == 0:
+        print("  All bugs already have descriptions.", flush=True)
+        return counts
+
+    print(f"  {total} bugs need comments. Processing in batches of {batch_size}...", flush=True)
+
+    for batch_start in range(0, total, batch_size):
+        batch = pending[batch_start : batch_start + batch_size]
+        batch_num = (batch_start // batch_size) + 1
+        total_batches = (total + batch_size - 1) // batch_size
+
+        print(f"  Batch {batch_num}/{total_batches} ({len(batch)} bugs)...", flush=True)
+
+        with _build_client() as client:
+            with connect(db_path) as conn:
+                for item in batch:
+                    internal_id = item["id"]
+                    bz_bug_id = item["bug_id"]
+
+                    comments = _fetch_comments_with_retry(client, bz_bug_id)
+
+                    if comments:
+                        description = comments[0].get("text", "")
+                        conn.execute(
+                            "UPDATE bugs SET description = ? WHERE id = ?",
+                            (description, internal_id),
+                        )
+                        for comment in comments[1:]:
+                            upsert_comment(conn, internal_id, comment)
+                            counts["comments"] += 1
+                    else:
+                        counts["failed"] += 1
+
+                    counts["processed"] += 1
+
+                    if on_progress is not None:
+                        on_progress(counts["processed"], total, counts["comments"])
+
+        counts["batches"] += 1
+
+        if batch_start + batch_size < total:
+            print(f"    Pausing {delay}s before next batch...", flush=True)
+            time.sleep(delay)
 
     return counts
