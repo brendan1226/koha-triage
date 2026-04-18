@@ -84,10 +84,9 @@ def classify(
     client = anthropic.Anthropic(api_key=api_key)
     candidate_text = _build_candidate_text(results)
 
-    response = client.messages.parse(
+    with client.messages.stream(
         model=classification_model,
         max_tokens=4000,
-        stream=True,
         system=SYSTEM_PROMPT,
         messages=[
             {
@@ -100,9 +99,10 @@ def classify(
             }
         ],
         output_format=ClassifyResponse,
-    )
+    ) as stream:
+        final = stream.get_final_message()
 
-    parsed = response.parsed_output
+    parsed = final.parsed_output
     if parsed is None:
         return results, []
 
