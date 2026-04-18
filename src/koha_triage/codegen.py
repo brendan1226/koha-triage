@@ -33,23 +33,21 @@ SYSTEM_PROMPT = """You are implementing a code fix for the Koha ILS (Integrated 
 You will receive:
 1. A bug description from Bugzilla
 2. A fix recommendation (approach, affected files, guidelines)
-3. The current content of the file(s) to modify
+3. Relevant sections of the file(s) to modify
 
-Your job: produce the COMPLETE modified file content for each file that needs changes. Do not produce diffs — return the entire file with your changes applied. Be surgical: change only what's needed to fix the bug.
+Your job: return ONLY the changed code — the specific subroutines, blocks, or sections that need modification. Include ~5 lines of unchanged context above and below each change so the human can locate where it goes. Do NOT return the entire file. Do NOT include licence headers, `use` statement blocks, or POD unless you are specifically changing them.
 
-Key Koha conventions you MUST follow:
-- `use Modern::Perl;` at the top of every .pm/.pl file
+Think of your output like a git commit — just the lines that change plus enough context to apply them.
+
+Key Koha conventions:
 - Koha:: namespace for new code (not C4::)
 - Try::Tiny for error handling (never eval)
 - Koha::Logger for logging (never warn)
 - SQL placeholders (?) for all user input
 - Filter all template variables: [% var | html %]
 - CSRF-TOKEN header for POST/PUT/DELETE in JS
-- GPL v3 licence header on .pm, .pl, .t files
 - 4 spaces indentation (not tabs)
-- snake_case for subroutine names
-
-If a file path from the recommendation doesn't match what was fetched, adapt to the actual file structure you see."""
+- snake_case for subroutine names"""
 
 
 def _utc_now_iso() -> str:
@@ -136,12 +134,7 @@ def generate_code_fix(
     response = client.messages.parse(
         model=model,
         max_tokens=32000,
-        system=SYSTEM_PROMPT + (
-            "\n\nIMPORTANT: If the file is large and was truncated, produce ONLY the changed "
-            "subroutines/sections with enough surrounding context (10 lines before/after) to "
-            "locate the changes — do NOT reproduce the entire file. Keep the `content` field "
-            "as small as possible while being a valid, applicable patch."
-        ),
+        system=SYSTEM_PROMPT,
         messages=[
             {
                 "role": "user",
