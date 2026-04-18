@@ -325,8 +325,19 @@ def search_page(request: Request, q: str = "", k: int = 5) -> HTMLResponse:
 # Bug browser
 # ---------------------------------------------------------------------------
 
+SORT_COLUMNS = {
+    "bug": "b.bug_id",
+    "summary": "b.summary",
+    "status": "b.status",
+    "component": "b.component",
+    "severity": "b.severity",
+    "creator": "b.creator",
+    "updated": "b.last_change_time",
+}
+
+
 @app.get("/bugs", response_class=HTMLResponse)
-def bugs_list(request: Request, component: str = "", status: str = "open", severity: str = "", q: str = "", page: int = 1) -> HTMLResponse:
+def bugs_list(request: Request, component: str = "", status: str = "open", severity: str = "", q: str = "", page: int = 1, sort: str = "updated", dir: str = "desc") -> HTMLResponse:
     init_db(settings.db_path)
     per_page = 50
     offset = (max(1, page) - 1) * per_page
@@ -342,13 +353,17 @@ def bugs_list(request: Request, component: str = "", status: str = "open", sever
     if q:
         filters.append("b.summary LIKE ?"); params.append(f"%{q}%")
     where = "WHERE " + " AND ".join(filters) if filters else ""
+
+    sort_col = SORT_COLUMNS.get(sort, "b.last_change_time")
+    sort_dir = "ASC" if dir == "asc" else "DESC"
+
     with connect(settings.db_path) as conn:
         total = conn.execute(f"SELECT COUNT(*) FROM bugs b {where}", params).fetchone()[0]
         rows = conn.execute(
             f"""SELECT b.id, b.bug_id, b.summary, b.status, b.resolution, b.component,
                        b.severity, b.priority, b.creator, b.creation_time, b.last_change_time, b.url
                 FROM bugs b {where}
-                ORDER BY b.last_change_time DESC LIMIT ? OFFSET ?""",
+                ORDER BY {sort_col} {sort_dir} LIMIT ? OFFSET ?""",
             [*params, per_page, offset]
         ).fetchall()
         component_options = conn.execute("SELECT DISTINCT component FROM bugs ORDER BY component").fetchall()
@@ -362,6 +377,7 @@ def bugs_list(request: Request, component: str = "", status: str = "open", sever
         "per_page": per_page,
         "filter_component": component, "filter_status": status,
         "filter_severity": severity, "filter_q": q,
+        "sort": sort, "sort_dir": dir,
     })
 
 

@@ -1,6 +1,15 @@
 {% extends "base.html" %}
 {% block title %}Bugs — koha-triage{% endblock %}
 
+{% macro sort_link(col, label, cls="") %}
+{% set next_dir = "asc" if (sort == col and sort_dir == "desc") else "desc" %}
+{% set arrow = "" %}
+{% if sort == col %}
+  {% set arrow = " ▲" if sort_dir == "asc" else " ▼" %}
+{% endif %}
+<a class="sort-header {{ cls }}" href="/bugs?component={{ filter_component }}&status={{ filter_status }}&severity={{ filter_severity }}&q={{ filter_q }}&sort={{ col }}&dir={{ next_dir }}">{{ label }}{{ arrow }}</a>
+{% endmacro %}
+
 {% block content %}
 <section>
   <h2>All bugs ({{ total }})</h2>
@@ -33,13 +42,13 @@
   <table class="issue-table">
     <thead>
       <tr>
-        <th class="num">Bug</th>
-        <th>Summary</th>
-        <th>Status</th>
-        <th>Component</th>
-        <th>Severity</th>
-        <th>Creator</th>
-        <th>Updated</th>
+        <th class="num">{{ sort_link("bug", "Bug", "num") }}</th>
+        <th>{{ sort_link("summary", "Summary") }}</th>
+        <th>{{ sort_link("status", "Status") }}</th>
+        <th>{{ sort_link("component", "Component") }}</th>
+        <th>{{ sort_link("severity", "Severity") }}</th>
+        <th>{{ sort_link("creator", "Creator") }}</th>
+        <th>{{ sort_link("updated", "Updated") }}</th>
         <th>Group</th>
       </tr>
     </thead>
@@ -78,11 +87,11 @@
   {% if total_pages > 1 %}
   <div class="pagination">
     {% if page > 1 %}
-    <a href="/bugs?component={{ filter_component }}&status={{ filter_status }}&severity={{ filter_severity }}&q={{ filter_q }}&page={{ page - 1 }}">← Prev</a>
+    <a href="/bugs?component={{ filter_component }}&status={{ filter_status }}&severity={{ filter_severity }}&q={{ filter_q }}&sort={{ sort }}&dir={{ sort_dir }}&page={{ page - 1 }}">← Prev</a>
     {% endif %}
     <span>Page {{ page }} of {{ total_pages }}</span>
     {% if page < total_pages %}
-    <a href="/bugs?component={{ filter_component }}&status={{ filter_status }}&severity={{ filter_severity }}&q={{ filter_q }}&page={{ page + 1 }}">Next →</a>
+    <a href="/bugs?component={{ filter_component }}&status={{ filter_status }}&severity={{ filter_severity }}&q={{ filter_q }}&sort={{ sort }}&dir={{ sort_dir }}&page={{ page + 1 }}">Next →</a>
     {% endif %}
   </div>
   {% endif %}

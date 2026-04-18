@@ -445,6 +445,14 @@ footer a:hover { text-decoration: underline; }
   cursor: pointer;
 }
 
+/* Sortable headers */
+.sort-header {
+  color: var(--accent);
+  text-decoration: none;
+  white-space: nowrap;
+}
+.sort-header:hover { text-decoration: underline; }
+
 /* Issue/bug table */
 .issue-table { font-size: 0.9rem; }
 .issue-table td { vertical-align: top; }
