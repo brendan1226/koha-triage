@@ -27,7 +27,8 @@
     {% for r in rows %}
     <article class="match">
       <header>
-        <a class="match-ref" href="{{ r.url }}">Bug {{ r.bug_id }}</a>
+        <a class="match-ref" href="/bugs/{{ r.internal_id }}">Bug {{ r.bug_id }}</a>
+        <a class="bz-link" href="{{ r.url }}" title="View on Bugzilla">Bugzilla ↗</a>
         <span class="tag status-{{ r.status|lower }}">{{ r.status }}</span>
         {% if r.resolution %}<span class="tag">{{ r.resolution }}</span>{% endif %}
         <span class="tag">{{ r.component }}</span>
@@ -36,7 +37,7 @@
         <span class="verdict verdict-{{ r.verdict }}">{{ r.verdict.replace("_", " ") }}</span>
         {% endif %}
       </header>
-      <h3>{{ r.summary }}</h3>
+      <h3><a href="/bugs/{{ r.internal_id }}" class="match-title-link">{{ r.summary }}</a></h3>
       {% if r.rationale %}
       <p class="rationale"><strong>Why:</strong> {{ r.rationale }}</p>
       <p class="suggestion"><strong>Suggested:</strong> {{ r.suggested_action }}</p>
