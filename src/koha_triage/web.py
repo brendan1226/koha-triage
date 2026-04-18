@@ -279,6 +279,17 @@ def search_page(request: Request, q: str = "", k: int = 5) -> HTMLResponse:
             request=request, name="search.html",
             context={"query": "", "has_anthropic_key": bool(settings.anthropic_api_key)},
         )
+
+    # If query is a bug number, jump straight to that bug's detail page
+    stripped = q.lstrip("#").strip()
+    if stripped.isdigit():
+        bug_num = int(stripped)
+        init_db(settings.db_path)
+        with connect(settings.db_path) as conn:
+            row = conn.execute("SELECT id FROM bugs WHERE bug_id = ?", (bug_num,)).fetchone()
+        if row:
+            return RedirectResponse(f"/bugs/{row['id']}", status_code=302)
+
     k = max(1, min(k, 20))
     from .search import NoEmbeddingsError, search as semantic_search
     error = None
