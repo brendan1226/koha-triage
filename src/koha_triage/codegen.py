@@ -211,9 +211,10 @@ def generate_code_fix(
 
     client = anthropic.Anthropic(api_key=api_key)
 
-    with client.messages.stream(
+    response = client.messages.parse(
         model=model,
         max_tokens=32000,
+        stream=True,
         system=SYSTEM_PROMPT,
         messages=[
             {
@@ -235,10 +236,11 @@ def generate_code_fix(
             }
         ],
         output_format=CodeFixResponse,
-    ) as stream:
-        response = stream.get_final_message()
+    )
 
-    fix = CodeFixResponse.model_validate_json(response.content[0].text)  # type: ignore
+    fix = response.parsed_output
+    if fix is None:
+        raise RuntimeError("Claude did not return a valid code fix")
 
     _store_fix(db_path, bug_internal_id, bug, fix, file_contents, model)
     return fix
@@ -307,9 +309,10 @@ def rebase_patch(
 
     client = anthropic.Anthropic(api_key=api_key)
 
-    with client.messages.stream(
+    response = client.messages.parse(
         model=model,
         max_tokens=32000,
+        stream=True,
         system=REBASE_SYSTEM_PROMPT,
         messages=[
             {
@@ -338,10 +341,11 @@ def rebase_patch(
             }
         ],
         output_format=CodeFixResponse,
-    ) as stream:
-        response = stream.get_final_message()
+    )
 
-    fix = CodeFixResponse.model_validate_json(response.content[0].text)  # type: ignore
+    fix = response.parsed_output
+    if fix is None:
+        raise RuntimeError("Claude did not return a valid rebased fix")
 
     _store_fix(
         db_path, bug_internal_id, bug, fix, file_contents, model,
