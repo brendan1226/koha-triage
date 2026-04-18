@@ -2,7 +2,7 @@ import sqlite3
 from contextlib import contextmanager
 from pathlib import Path
 
-SCHEMA_VERSION = 1
+SCHEMA_VERSION = 2
 
 SCHEMA = """
 CREATE TABLE IF NOT EXISTS bugs (
@@ -101,11 +101,32 @@ CREATE INDEX IF NOT EXISTS idx_group_members_group ON group_members(group_id);
 CREATE INDEX IF NOT EXISTS idx_group_members_bug ON group_members(bug_id);
 CREATE INDEX IF NOT EXISTS idx_recommendations_bug ON recommendations(bug_id);
 CREATE INDEX IF NOT EXISTS idx_code_fixes_bug ON code_fixes(bug_id);
+CREATE TABLE IF NOT EXISTS qa_reviews (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    bug_id INTEGER NOT NULL REFERENCES bugs(id),
+    patch_author TEXT,
+    model TEXT NOT NULL,
+    review_json TEXT NOT NULL,
+    created_at TEXT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_qa_reviews_bug ON qa_reviews(bug_id);
 """
 
 
 def _migrate(conn: sqlite3.Connection) -> None:
     current = conn.execute("PRAGMA user_version").fetchone()[0]
+    if current < 2:
+        conn.executescript("""
+            CREATE TABLE IF NOT EXISTS qa_reviews (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                bug_id INTEGER NOT NULL,
+                patch_author TEXT,
+                model TEXT NOT NULL,
+                review_json TEXT NOT NULL,
+                created_at TEXT NOT NULL
+            );
+            CREATE INDEX IF NOT EXISTS idx_qa_reviews_bug ON qa_reviews(bug_id);
+        """)
     if current < SCHEMA_VERSION:
         conn.execute(f"PRAGMA user_version = {SCHEMA_VERSION}")
 

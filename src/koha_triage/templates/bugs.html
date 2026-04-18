@@ -56,7 +56,12 @@
       {% for b in bugs %}
       <tr>
         <td class="num"><a href="{{ b.url }}">{{ b.bug_id }}</a></td>
-        <td><a href="/bugs/{{ b.id }}">{{ b.summary }}</a></td>
+        <td>
+          {% if b.status in ['Needs Signoff', 'Signed Off', 'Passed QA', 'Failed QA'] or "Patch doesn't apply" in (b.status or '') %}
+          <span class="patch-icon" title="Has patch">P</span>
+          {% endif %}
+          <a href="/bugs/{{ b.id }}">{{ b.summary }}</a>
+        </td>
         <td>
           <span class="tag status-{{ b.status|lower }}">{{ b.status }}</span>
           {% if b.resolution %}<span class="tag">{{ b.resolution }}</span>{% endif %}

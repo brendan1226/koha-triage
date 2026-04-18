@@ -19,6 +19,9 @@ class Settings(BaseSettings):
     embedding_model: str = "BAAI/bge-small-en-v1.5"
     classification_model: str = "claude-opus-4-6"
 
+    # Bugzilla API key for posting comments (optional)
+    bugzilla_api_key: str | None = None
+
     # Google OAuth (optional)
     google_client_id: str | None = None
     google_client_secret: str | None = None

@@ -483,6 +483,166 @@ def download_patch(bug_internal_id: int) -> PlainTextResponse:
 
 
 # ---------------------------------------------------------------------------
+# Bugzilla patches — viewer, QA review, comment posting
+# ---------------------------------------------------------------------------
+
+@app.get("/bugs/{bug_internal_id}/patches", response_class=HTMLResponse)
+def view_patches(request: Request, bug_internal_id: int, error: str = "", qa_done: bool = False) -> HTMLResponse:
+    """View non-obsolete patches from Bugzilla with optional AI QA review."""
+    init_db(settings.db_path)
+    with connect(settings.db_path) as conn:
+        bug = conn.execute("SELECT * FROM bugs WHERE id = ?", (bug_internal_id,)).fetchone()
+    if bug is None:
+        return HTMLResponse("Bug not found", status_code=404)
+
+    from .codegen import fetch_patches_from_bugzilla
+    try:
+        all_patches = fetch_patches_from_bugzilla(bug["bug_id"])
+    except Exception as e:
+        all_patches = []
+        error = f"Failed to fetch patches: {e}"
+
+    patches = [p for p in all_patches if not p["is_obsolete"]]
+
+    # Parse each patch into diff lines for display
+    for p in patches:
+        diff_lines = []
+        for raw_line in p["data"].splitlines():
+            if raw_line.startswith("+++") or raw_line.startswith("---"):
+                diff_lines.append({"type": "header", "text": raw_line})
+            elif raw_line.startswith("@@"):
+                diff_lines.append({"type": "hunk", "text": raw_line})
+            elif raw_line.startswith("+"):
+                diff_lines.append({"type": "add", "text": raw_line})
+            elif raw_line.startswith("-"):
+                diff_lines.append({"type": "del", "text": raw_line})
+            else:
+                diff_lines.append({"type": "ctx", "text": raw_line})
+        p["diff_lines"] = diff_lines
+
+    # Load stored QA review if any
+    qa_result = None
+    with connect(settings.db_path) as conn:
+        qa_row = conn.execute(
+            "SELECT * FROM qa_reviews WHERE bug_id = ? ORDER BY created_at DESC LIMIT 1",
+            (bug_internal_id,),
+        ).fetchone()
+    if qa_row:
+        import json
+        qa_result = json.loads(qa_row["review_json"])
+        qa_result["_meta"] = {"model": qa_row["model"], "created_at": qa_row["created_at"], "patch_author": qa_row["patch_author"]}
+
+    return templates.TemplateResponse(request=request, name="patches.html", context={
+        "bug": dict(bug),
+        "patches": patches,
+        "qa_result": qa_result,
+        "has_anthropic_key": bool(settings.anthropic_api_key),
+        "has_bugzilla_key": bool(settings.bugzilla_api_key),
+        "error": error,
+        "qa_done": qa_done,
+    })
+
+
+@app.post("/bugs/{bug_internal_id}/qa-review")
+def run_qa_review(request: Request, bug_internal_id: int, patch_index: int = Form(0)) -> RedirectResponse:
+    """Run AI QA review on a Bugzilla patch."""
+    if not settings.anthropic_api_key:
+        return RedirectResponse(f"/bugs/{bug_internal_id}/patches?error=No+Anthropic+API+key", status_code=303)
+
+    try:
+        from .codegen import fetch_patches_from_bugzilla
+        from .qa_review import review_patch
+
+        all_patches = fetch_patches_from_bugzilla(
+            _get_bug_id(bug_internal_id)
+        )
+        non_obsolete = [p for p in all_patches if not p["is_obsolete"]]
+        if not non_obsolete:
+            raise ValueError("No non-obsolete patches found")
+
+        idx = min(patch_index, len(non_obsolete) - 1)
+        patch = non_obsolete[idx]
+
+        result = review_patch(
+            settings.db_path,
+            bug_internal_id,
+            patch["data"],
+            patch["creator"],
+            settings.anthropic_api_key,
+            settings.classification_model,
+        )
+
+        # Store the review
+        import json
+        now = _utc_now_iso()
+        with connect(settings.db_path) as conn:
+            conn.execute(
+                """
+                INSERT INTO qa_reviews (bug_id, patch_author, model, review_json, created_at)
+                VALUES (?, ?, ?, ?, ?)
+                """,
+                (bug_internal_id, patch["creator"], settings.classification_model, result.model_dump_json(), now),
+            )
+
+    except Exception as e:
+        return RedirectResponse(f"/bugs/{bug_internal_id}/patches?error={quote(str(e))}", status_code=303)
+
+    return RedirectResponse(f"/bugs/{bug_internal_id}/patches?qa_done=1", status_code=303)
+
+
+@app.post("/bugs/{bug_internal_id}/post-qa-comment")
+def post_qa_comment(request: Request, bug_internal_id: int) -> RedirectResponse:
+    """Post the QA review as a comment on Bugzilla."""
+    if not settings.bugzilla_api_key:
+        return RedirectResponse(f"/bugs/{bug_internal_id}/patches?error=No+Bugzilla+API+key+configured", status_code=303)
+
+    try:
+        import json
+        from .qa_review import format_qa_comment, QAResult
+
+        with connect(settings.db_path) as conn:
+            qa_row = conn.execute(
+                "SELECT * FROM qa_reviews WHERE bug_id = ? ORDER BY created_at DESC LIMIT 1",
+                (bug_internal_id,),
+            ).fetchone()
+            bug = conn.execute("SELECT * FROM bugs WHERE id = ?", (bug_internal_id,)).fetchone()
+
+        if qa_row is None:
+            raise ValueError("No QA review found. Run one first.")
+
+        result = QAResult.model_validate_json(qa_row["review_json"])
+        user = request.state.user
+        reviewer_name = user.get("name", "koha-triage") if user else "koha-triage"
+        reviewer_email = user.get("email", "koha-triage@bywatersolutions.com") if user else "koha-triage@bywatersolutions.com"
+
+        comment_text = format_qa_comment(result, bug["bug_id"], reviewer_name, reviewer_email)
+
+        # Post to Bugzilla REST API
+        import httpx
+        resp = httpx.post(
+            f"{BUGZILLA_URL}/rest/bug/{bug['bug_id']}/comment",
+            json={"comment": comment_text, "Bugzilla_api_key": settings.bugzilla_api_key},
+            headers={"Accept": "application/json"},
+            timeout=30.0,
+        )
+        resp.raise_for_status()
+
+    except Exception as e:
+        return RedirectResponse(f"/bugs/{bug_internal_id}/patches?error={quote(str(e))}", status_code=303)
+
+    return RedirectResponse(f"/bugs/{bug_internal_id}/patches?qa_done=1", status_code=303)
+
+
+def _get_bug_id(bug_internal_id: int) -> int:
+    """Helper to get the Bugzilla bug_id from internal id."""
+    with connect(settings.db_path) as conn:
+        row = conn.execute("SELECT bug_id FROM bugs WHERE id = ?", (bug_internal_id,)).fetchone()
+    if row is None:
+        raise ValueError(f"Bug {bug_internal_id} not found")
+    return row["bug_id"]
+
+
+# ---------------------------------------------------------------------------
 # KTD integration — generated scripts
 # ---------------------------------------------------------------------------
 

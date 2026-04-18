@@ -475,6 +475,22 @@ footer a:hover { text-decoration: underline; }
   cursor: pointer;
 }
 
+/* Patch indicator */
+.patch-icon {
+  display: inline-block;
+  width: 1.3rem;
+  height: 1.3rem;
+  line-height: 1.3rem;
+  text-align: center;
+  background: #2d5a2d;
+  color: #a1e4a7;
+  border-radius: 3px;
+  font-size: 0.7rem;
+  font-weight: 800;
+  margin-right: 0.4rem;
+  vertical-align: middle;
+}
+
 /* Sortable headers */
 .sort-header {
   color: var(--accent);
@@ -691,6 +707,95 @@ footer a:hover { text-decoration: underline; }
   justify-content: space-between;
   font-size: 0.82rem;
   color: var(--muted);
+}
+
+/* Patch link in bug detail */
+.patch-link {
+  color: #a1e4a7;
+  background: #2d5a2d;
+  padding: 0.15rem 0.55rem;
+  border-radius: 4px;
+  text-decoration: none;
+  font-size: 0.85rem;
+  font-weight: 600;
+}
+.patch-link:hover { filter: brightness(1.2); }
+
+/* Patches page */
+.patch-section { margin-bottom: 1.5rem; }
+.patch-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+.patch-header h3 { margin: 0; display: flex; align-items: center; gap: 0.5rem; }
+.patch-meta { font-size: 0.85rem; }
+.patch-diff-details { margin-top: 0.5rem; }
+.patch-diff-toggle {
+  cursor: pointer;
+  color: var(--accent);
+  font-size: 0.88rem;
+  padding: 0.4rem 0;
+  user-select: none;
+}
+.patch-diff-toggle:hover { text-decoration: underline; }
+.patch-actions { margin-top: 0.75rem; }
+
+/* QA review section */
+.qa-section { margin-top: 2rem; }
+.qa-section h3 { color: var(--accent); }
+.qa-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 1.25rem;
+}
+.qa-card.qa-passes_qa { border-color: #2d5a2d; }
+.qa-card.qa-needs_followup { border-color: #4c3b1f; }
+.qa-card.qa-fails_qa { border-color: #5a2d2d; }
+
+.qa-header {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  align-items: center;
+  margin-bottom: 1rem;
+  padding-bottom: 0.75rem;
+  border-bottom: 1px solid var(--border);
+}
+.qa-verdict {
+  padding: 0.25rem 0.75rem;
+  border-radius: 4px;
+  font-size: 0.85rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+.qa-verdict-passes_qa { background: #1f4c2a; color: #a1e4a7; }
+.qa-verdict-needs_followup { background: #4c3b1f; color: #e4c4a1; }
+.qa-verdict-fails_qa { background: #4a1f1f; color: #e4a1a1; }
+
+.qa-field { margin-bottom: 0.75rem; }
+.qa-field strong {
+  display: block;
+  font-size: 0.85rem;
+  color: var(--accent);
+  margin-bottom: 0.3rem;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+}
+.qa-field p { margin: 0; line-height: 1.5; }
+.qa-field ul { margin: 0.25rem 0 0; padding-left: 1.25rem; font-size: 0.92rem; }
+.qa-issues li { color: var(--red-fg); }
+
+.qa-actions {
+  display: flex;
+  gap: 0.75rem;
+  align-items: center;
+  margin-top: 1rem;
+  flex-wrap: wrap;
 }
 
 /* KTD button */

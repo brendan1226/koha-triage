@@ -1,0 +1,125 @@
+{% extends "base.html" %}
+{% block title %}Patches — Bug {{ bug.bug_id }} — koha-triage{% endblock %}
+
+{% block content %}
+{% if error %}
+<div class="error-flash">{{ error }}</div>
+{% endif %}
+
+<section>
+  <p class="breadcrumb">
+    <a href="/bugs">Bugs</a> ›
+    <a href="/bugs/{{ bug.id }}">Bug {{ bug.bug_id }}</a> ›
+    Patches
+  </p>
+  <div class="issue-header">
+    <h2>Patches for Bug {{ bug.bug_id }}</h2>
+    <p class="muted">{{ bug.summary }}</p>
+  </div>
+</section>
+
+{% if patches %}
+  {% for p in patches %}
+  <section class="patch-section">
+    <div class="patch-header">
+      <h3>
+        <span class="patch-icon">P</span>
+        {{ p.summary or p.file_name }}
+      </h3>
+      <div class="patch-meta">
+        <span class="muted">by {{ p.creator }} · {{ p.creation_time[:10] }}</span>
+      </div>
+    </div>
+
+    <details class="patch-diff-details" {% if loop.last %}open{% endif %}>
+      <summary class="patch-diff-toggle">View diff ({{ p.diff_lines|length }} lines)</summary>
+      <div class="diff-view">
+        {% for line in p.diff_lines %}
+        <div class="diff-line diff-{{ line.type }}">{{ line.text }}</div>
+        {% endfor %}
+      </div>
+    </details>
+
+    {% if has_anthropic_key and loop.last %}
+    <div class="patch-actions">
+      <form action="/bugs/{{ bug.id }}/qa-review" method="post" class="inline-form">
+        <input type="hidden" name="patch_index" value="{{ loop.index0 }}" />
+        <button type="submit" class="btn-primary">Run AI QA Review</button>
+      </form>
+    </div>
+    {% endif %}
+  </section>
+  {% endfor %}
+{% else %}
+<section>
+  <p class="empty">No non-obsolete patches found on Bugzilla for this bug.</p>
+</section>
+{% endif %}
+
+{# ── QA Review Results ── #}
+{% if qa_result %}
+<section class="qa-section">
+  <h3>AI QA Review</h3>
+  <div class="qa-card qa-{{ qa_result.overall_verdict }}">
+    <div class="qa-header">
+      <span class="qa-verdict qa-verdict-{{ qa_result.overall_verdict }}">
+        {% if qa_result.overall_verdict == 'passes_qa' %}Passes QA
+        {% elif qa_result.overall_verdict == 'needs_followup' %}Needs Follow-up
+        {% else %}Fails QA{% endif %}
+      </span>
+      {% if qa_result._meta %}
+      <span class="muted">{{ qa_result._meta.model }} · {{ qa_result._meta.created_at[:10] }} · patch by {{ qa_result._meta.patch_author }}</span>
+      {% endif %}
+    </div>
+
+    <div class="qa-field"><p>{{ qa_result.summary }}</p></div>
+
+    {% if qa_result.strengths %}
+    <div class="qa-field">
+      <strong>Strengths</strong>
+      <ul>{% for s in qa_result.strengths %}<li>{{ s }}</li>{% endfor %}</ul>
+    </div>
+    {% endif %}
+
+    {% if qa_result.issues %}
+    <div class="qa-field">
+      <strong>Issues</strong>
+      <ul class="qa-issues">{% for issue in qa_result.issues %}<li>{{ issue }}</li>{% endfor %}</ul>
+    </div>
+    {% endif %}
+
+    {% if qa_result.suggested_followups %}
+    <div class="qa-field">
+      <strong>Follow-ups needed</strong>
+      <ul>{% for f in qa_result.suggested_followups %}<li>{{ f }}</li>{% endfor %}</ul>
+    </div>
+    {% endif %}
+
+    <div class="qa-field">
+      <strong>Testing notes</strong>
+      <p>{{ qa_result.testing_notes }}</p>
+    </div>
+
+    <div class="qa-actions">
+      {% if has_bugzilla_key %}
+      <form action="/bugs/{{ bug.id }}/post-qa-comment" method="post" class="inline-form"
+            onsubmit="return confirm('This will post the QA review as a comment on Bugzilla. Continue?')">
+        <button type="submit" class="btn-primary">Post to Bugzilla as comment</button>
+      </form>
+      {% else %}
+      <p class="muted">Set <code>KOHA_TRIAGE_BUGZILLA_API_KEY</code> to enable posting comments to Bugzilla.</p>
+      {% endif %}
+      <form action="/bugs/{{ bug.id }}/qa-review" method="post" class="inline-form">
+        <button type="submit" class="btn-secondary">↻ Re-run QA</button>
+      </form>
+    </div>
+  </div>
+</section>
+{% endif %}
+
+<section>
+  <div class="ktd-back-actions">
+    <a href="/bugs/{{ bug.id }}" class="btn-secondary" style="text-decoration:none">← Back to Bug {{ bug.bug_id }}</a>
+  </div>
+</section>
+{% endblock %}

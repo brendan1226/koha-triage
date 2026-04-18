@@ -19,6 +19,9 @@
       {% if bug.severity %}<span class="tag">{{ bug.severity }}</span>{% endif %}
       {% for kw in keywords %}<span class="tag label-tag">{{ kw }}</span>{% endfor %}
       <span class="muted">by {{ bug.creator or "unknown" }} · {{ bug.creation_time[:10] }}</span>
+      {% if bug.status in ['Needs Signoff', 'Signed Off', 'Passed QA', 'Failed QA'] or "Patch doesn't apply" in (bug.status or '') %}
+      <a href="/bugs/{{ bug.id }}/patches" class="patch-link">View Patches</a>
+      {% endif %}
       <a href="{{ bug.url }}" class="gh-link">View on Bugzilla ↗</a>
     </div>
   </div>
