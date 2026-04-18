@@ -211,7 +211,7 @@ def generate_code_fix(
 
     client = anthropic.Anthropic(api_key=api_key)
 
-    response = client.messages.parse(
+    with client.messages.stream(
         model=model,
         max_tokens=32000,
         system=SYSTEM_PROMPT,
@@ -235,11 +235,10 @@ def generate_code_fix(
             }
         ],
         output_format=CodeFixResponse,
-    )
+    ) as stream:
+        response = stream.get_final_message()
 
-    fix = response.parsed_output
-    if fix is None:
-        raise RuntimeError("Claude did not return a valid code fix")
+    fix = CodeFixResponse.model_validate_json(response.content[0].text)  # type: ignore
 
     _store_fix(db_path, bug_internal_id, bug, fix, file_contents, model)
     return fix
@@ -308,7 +307,7 @@ def rebase_patch(
 
     client = anthropic.Anthropic(api_key=api_key)
 
-    response = client.messages.parse(
+    with client.messages.stream(
         model=model,
         max_tokens=32000,
         system=REBASE_SYSTEM_PROMPT,
@@ -328,7 +327,7 @@ def rebase_patch(
                     f"---\n\n## Bug comments (may explain why the patch no longer applies)\n\n"
                     + "\n".join(
                         f"**{c.get('author', 'unknown')}** ({c['creation_time'][:10]}): {c['body'][:500]}"
-                        for c in comments[-10:]  # last 10 comments, most relevant
+                        for c in comments[-10:]
                     )
                     + f"\n\n---\n\n## Current file contents (what the patch needs to apply against)\n\n"
                     + "\n\n".join(truncated_context)
@@ -339,11 +338,10 @@ def rebase_patch(
             }
         ],
         output_format=CodeFixResponse,
-    )
+    ) as stream:
+        response = stream.get_final_message()
 
-    fix = response.parsed_output
-    if fix is None:
-        raise RuntimeError("Claude did not return a valid rebased fix")
+    fix = CodeFixResponse.model_validate_json(response.content[0].text)  # type: ignore
 
     _store_fix(
         db_path, bug_internal_id, bug, fix, file_contents, model,

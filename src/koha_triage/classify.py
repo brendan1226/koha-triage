@@ -84,7 +84,7 @@ def classify(
     client = anthropic.Anthropic(api_key=api_key)
     candidate_text = _build_candidate_text(results)
 
-    response = client.messages.parse(
+    with client.messages.stream(
         model=classification_model,
         max_tokens=4000,
         system=SYSTEM_PROMPT,
@@ -99,10 +99,12 @@ def classify(
             }
         ],
         output_format=ClassifyResponse,
-    )
+    ) as stream:
+        response = stream.get_final_message()
 
-    parsed = response.parsed_output
-    if parsed is None:
+    try:
+        parsed = ClassifyResponse.model_validate_json(response.content[0].text)  # type: ignore
+    except Exception:
         return results, []
 
     verdicts_by_idx = {v.match_id: v for v in parsed.verdicts}

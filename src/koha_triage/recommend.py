@@ -114,7 +114,7 @@ def generate_recommendation(
 
     client = anthropic.Anthropic(api_key=api_key)
 
-    response = client.messages.parse(
+    with client.messages.stream(
         model=model,
         max_tokens=4000,
         system=SYSTEM_PROMPT,
@@ -129,11 +129,10 @@ def generate_recommendation(
             }
         ],
         output_format=Recommendation,
-    )
+    ) as stream:
+        response = stream.get_final_message()
 
-    rec = response.parsed_output
-    if rec is None:
-        raise RuntimeError("Claude did not return a valid recommendation")
+    rec = Recommendation.model_validate_json(response.content[0].text)  # type: ignore
 
     now = datetime.now(timezone.utc).isoformat(timespec="seconds")
     with connect(db_path) as conn:
