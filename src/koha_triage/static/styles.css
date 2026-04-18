@@ -320,6 +320,36 @@ footer a:hover { text-decoration: underline; }
 .search-help a { color: var(--accent); text-decoration: none; }
 .search-help a:hover { text-decoration: underline; }
 
+/* Search results header + filters */
+.results-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+.results-header h2 { margin-bottom: 0; }
+.results-filters {
+  display: flex;
+  gap: 1rem;
+  align-items: center;
+}
+.toggle-label {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  font-size: 0.85rem;
+  color: var(--muted);
+  cursor: pointer;
+  user-select: none;
+}
+.toggle-label input[type="checkbox"] {
+  accent-color: var(--accent);
+  cursor: pointer;
+}
+.toggle-label:hover { color: var(--fg); }
+.filter-count { font-size: 0.85rem; margin-top: 0.5rem; }
+
 /* Search results */
 .match {
   background: var(--surface);

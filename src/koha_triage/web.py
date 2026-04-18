@@ -281,7 +281,7 @@ def index(request: Request) -> HTMLResponse:
 # ---------------------------------------------------------------------------
 
 @app.get("/search", response_class=HTMLResponse)
-def search_page(request: Request, q: str = "", k: int = 5) -> HTMLResponse:
+def search_page(request: Request, q: str = "", k: int = 10) -> HTMLResponse:
     q = (q or "").strip()
     if not q:
         return templates.TemplateResponse(

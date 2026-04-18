@@ -23,9 +23,19 @@
 {% elif query %}
   {% if rows %}
   <section class="results">
-    <h2>Top {{ rows|length }} matches</h2>
+    <div class="results-header">
+      <h2>Top {{ rows|length }} matches</h2>
+      <div class="results-filters">
+        <label class="toggle-label">
+          <input type="checkbox" id="hide-closed" onchange="toggleClosed()"> Hide resolved/closed
+        </label>
+        <label class="toggle-label">
+          <input type="checkbox" id="hide-unrelated" onchange="toggleUnrelated()"> Hide unrelated
+        </label>
+      </div>
+    </div>
     {% for r in rows %}
-    <article class="match">
+    <article class="match" data-status="{{ r.status }}" data-verdict="{{ r.verdict or '' }}">
       <header>
         <a class="match-ref" href="/bugs/{{ r.internal_id }}">Bug {{ r.bug_id }}</a>
         <a class="bz-link" href="{{ r.url }}" title="View on Bugzilla">Bugzilla ↗</a>
@@ -47,6 +57,7 @@
       {% endif %}
     </article>
     {% endfor %}
+    <p class="filter-count muted" id="filter-count" style="display:none"></p>
   </section>
   {% else %}
   <section class="empty-results">
@@ -54,4 +65,39 @@
   </section>
   {% endif %}
 {% endif %}
+
+<script>
+function updateCount() {
+  var all = document.querySelectorAll('.match');
+  var hidden = document.querySelectorAll('.match[style*="display: none"]').length;
+  var el = document.getElementById('filter-count');
+  if (hidden > 0) {
+    el.textContent = hidden + ' result' + (hidden !== 1 ? 's' : '') + ' hidden by filters';
+    el.style.display = 'block';
+  } else {
+    el.style.display = 'none';
+  }
+}
+function toggleClosed() {
+  var hide = document.getElementById('hide-closed').checked;
+  var closedStatuses = ['RESOLVED', 'VERIFIED', 'CLOSED'];
+  document.querySelectorAll('.match').forEach(function(el) {
+    var st = el.getAttribute('data-status');
+    if (closedStatuses.indexOf(st) !== -1) {
+      el.style.display = hide ? 'none' : '';
+    }
+  });
+  updateCount();
+}
+function toggleUnrelated() {
+  var hide = document.getElementById('hide-unrelated').checked;
+  document.querySelectorAll('.match').forEach(function(el) {
+    var v = el.getAttribute('data-verdict');
+    if (v === 'unrelated') {
+      el.style.display = hide ? 'none' : '';
+    }
+  });
+  updateCount();
+}
+</script>
 {% endblock %}
