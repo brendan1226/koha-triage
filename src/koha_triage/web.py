@@ -232,6 +232,15 @@ def healthz() -> dict:
 
 
 # ---------------------------------------------------------------------------
+# About
+# ---------------------------------------------------------------------------
+
+@app.get("/about", response_class=HTMLResponse)
+def about_page(request: Request) -> HTMLResponse:
+    return templates.TemplateResponse(request=request, name="about.html")
+
+
+# ---------------------------------------------------------------------------
 # Dashboard
 # ---------------------------------------------------------------------------
 

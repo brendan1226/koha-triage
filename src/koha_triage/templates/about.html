@@ -1,0 +1,94 @@
+{% extends "base.html" %}
+{% block title %}About — koha-triage{% endblock %}
+
+{% block content %}
+<section class="about-hero">
+  <h2>About koha-triage</h2>
+  <p class="about-tagline">AI-powered triage for the Koha community Bugzilla</p>
+</section>
+
+<section class="about-section">
+  <h3>What is this?</h3>
+  <p>koha-triage harvests bugs from <a href="https://bugs.koha-community.org/bugzilla3/">bugs.koha-community.org</a> and makes them searchable using semantic AI. Instead of keyword matching, you can describe a problem in plain language and find related bugs — even if they use different terminology.</p>
+  <p>Built by <a href="https://bywatersolutions.com">ByWater Solutions</a> to help the Koha community triage, prioritize, and fix bugs faster.</p>
+</section>
+
+<section class="about-section">
+  <h3>Features</h3>
+  <div class="about-features">
+    <div class="about-feature">
+      <div class="about-feature-icon">S</div>
+      <div>
+        <strong>Semantic search</strong>
+        <p>Describe a problem in your own words. koha-triage uses AI embeddings to find the most relevant bugs, regardless of exact wording.</p>
+      </div>
+    </div>
+    <div class="about-feature">
+      <div class="about-feature-icon">V</div>
+      <div>
+        <strong>AI verdicts</strong>
+        <p>Each search result gets a Claude-generated verdict: is it a duplicate? Already fixed? Has a patch? So you know what action to take.</p>
+      </div>
+    </div>
+    <div class="about-feature">
+      <div class="about-feature-icon">G</div>
+      <div>
+        <strong>Bug grouping</strong>
+        <p>Manually cluster related bugs into groups for coordinated triage — useful when multiple reports describe the same underlying issue.</p>
+      </div>
+    </div>
+    <div class="about-feature">
+      <div class="about-feature-icon">R</div>
+      <div>
+        <strong>AI recommendations</strong>
+        <p>For any bug, generate a structured fix recommendation using Koha's coding guidelines and development handbook. Identifies affected files, complexity, and a test plan.</p>
+      </div>
+    </div>
+    <div class="about-feature">
+      <div class="about-feature-icon">C</div>
+      <div>
+        <strong>Code generation</strong>
+        <p>AI generates targeted code fixes displayed as git-style diffs. Download as a <code>.patch</code> file ready for the <code>git bz</code> workflow.</p>
+      </div>
+    </div>
+    <div class="about-feature">
+      <div class="about-feature-icon">P</div>
+      <div>
+        <strong>Patch rebasing</strong>
+        <p>For bugs with status "Patch doesn't apply," koha-triage fetches the stale patch from Bugzilla, rebases it against the current code, and credits the original author.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="about-section">
+  <h3>How it works</h3>
+  <ol class="about-steps">
+    <li><strong>Harvest</strong> — Bugs and comments are pulled from the Bugzilla REST API and stored locally.</li>
+    <li><strong>Embed</strong> — Each bug's summary and description are converted to a vector embedding for semantic search.</li>
+    <li><strong>Search</strong> — Your query is embedded and compared against all bugs using cosine similarity.</li>
+    <li><strong>Classify</strong> — Claude reads the top matches and assigns a verdict to each one.</li>
+    <li><strong>Recommend</strong> — For a specific bug, Claude analyzes it against Koha's coding guidelines and produces a structured fix plan.</li>
+    <li><strong>Generate</strong> — Claude writes the actual code fix, shown as a diff you can review and download as a patch.</li>
+  </ol>
+</section>
+
+<section class="about-section">
+  <h3>Technology</h3>
+  <p>Python, FastAPI, SQLite, <a href="https://github.com/qdrant/fastembed">fastembed</a> (BAAI/bge-small-en-v1.5), and <a href="https://www.anthropic.com">Claude</a> by Anthropic. Source code available on <a href="https://github.com/brendan1226/koha-triage">GitHub</a>.</p>
+  <p>All AI-generated code includes an <code>Assisted-by</code> trailer per Koha's AI contribution requirements. Human review is always required before submitting patches.</p>
+</section>
+
+<section class="about-section">
+  <h3>Koha patch workflow</h3>
+  <p>Koha does not accept pull requests. The contribution workflow is:</p>
+  <ol>
+    <li>Find or file a bug on <a href="https://bugs.koha-community.org/bugzilla3/">Bugzilla</a></li>
+    <li>Generate a fix here (or write one yourself)</li>
+    <li>Download the <code>.patch</code> file</li>
+    <li>Apply locally: <code>git am bug_XXXXX.patch</code></li>
+    <li>Review, test, and adjust</li>
+    <li>Attach to Bugzilla: <code>git bz attach XXXXX HEAD</code></li>
+  </ol>
+</section>
+{% endblock %}

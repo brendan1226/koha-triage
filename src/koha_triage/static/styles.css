@@ -655,6 +655,51 @@ footer a:hover { text-decoration: underline; }
   color: var(--muted);
 }
 
+/* About page */
+.about-hero { text-align: center; margin-bottom: 1rem; }
+.about-tagline { color: var(--muted); font-size: 1.1rem; margin-top: 0.25rem; }
+.about-section { margin-bottom: 2rem; }
+.about-section h3 { color: var(--accent); }
+.about-section p { line-height: 1.65; }
+.about-section a { color: var(--accent); text-decoration: none; }
+.about-section a:hover { text-decoration: underline; }
+
+.about-features {
+  display: grid;
+  gap: 1rem;
+  margin-top: 1rem;
+}
+.about-feature {
+  display: flex;
+  gap: 1rem;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 1rem 1.25rem;
+}
+.about-feature-icon {
+  flex-shrink: 0;
+  width: 2.2rem;
+  height: 2.2rem;
+  background: var(--accent);
+  color: var(--bg);
+  border-radius: 6px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 800;
+  font-size: 1rem;
+}
+.about-feature p { margin: 0.3rem 0 0; font-size: 0.9rem; color: var(--muted); }
+.about-feature strong { color: var(--fg); }
+
+.about-steps {
+  line-height: 1.7;
+  font-size: 0.95rem;
+}
+.about-steps li { margin-bottom: 0.5rem; }
+.about-steps strong { color: var(--accent); }
+
 /* Rebase section */
 .rebase-section { margin-top: 2rem; }
 .rebase-section h3 { color: #d4a844; }
