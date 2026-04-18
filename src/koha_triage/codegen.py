@@ -21,7 +21,7 @@ BUGZILLA_REST = f"{BUGZILLA_URL}/rest"
 class FileFix(BaseModel):
     file_path: str = Field(..., description="Path relative to repo root.")
     explanation: str = Field(..., description="What changed and why, 2-3 sentences.")
-    content: str = Field(..., description="The changed code sections with ~5 lines of context.")
+    content: str = Field(..., description="The COMPLETE modified file content with your changes applied.")
 
 
 class CodeFixResponse(BaseModel):
@@ -34,11 +34,13 @@ SYSTEM_PROMPT = """You are implementing a code fix for the Koha ILS (Integrated 
 You will receive:
 1. A bug description from Bugzilla
 2. A fix recommendation (approach, affected files, guidelines)
-3. Relevant sections of the file(s) to modify
+3. The current content of the file(s) to modify (may be truncated for large files)
 
-Your job: return ONLY the changed code — the specific subroutines, blocks, or sections that need modification. Include ~5 lines of unchanged context above and below each change so the human can locate where it goes. Do NOT return the entire file. Do NOT include licence headers, `use` statement blocks, or POD unless you are specifically changing them.
+Your job: return the COMPLETE modified file content for each file that needs changes. Return the entire file with your changes applied so it can be diffed against the original.
 
-Think of your output like a git commit — just the lines that change plus enough context to apply them.
+If the input file was truncated, reproduce the portion you were given with your changes applied. Do NOT add licence headers or POD that wasn't in the input.
+
+Be surgical: change only what's needed to fix the bug.
 
 Key Koha conventions:
 - Koha:: namespace for new code (not C4::)
@@ -58,7 +60,7 @@ You will receive:
 2. An existing patch that no longer applies cleanly to the current codebase
 3. The current content of the file(s) the patch modifies
 
-Your job: produce an UPDATED version of the patch that applies cleanly to the current code. Preserve the original author's intent and approach — you are rebasing, not rewriting. Return ONLY the changed code sections with ~5 lines of context, not full files.
+Your job: produce the COMPLETE modified file content that applies the patch's changes to the current code. Preserve the original author's intent and approach — you are rebasing, not rewriting. Return the entire file (or the portion you were given) with the patch's changes applied.
 
 The commit message MUST credit the original patch author. Use this format:
   Bug XXXXX: <original description> [rebased]
@@ -194,18 +196,22 @@ def generate_code_fix(
 
     bug = dict(row)
 
+    max_lines = 500
     file_contents: list[dict] = []
     for path in rec.likely_files[:max_files]:
         try:
             content, sha = fetch_file_from_mirror(path, token=github_token)
-            file_contents.append({"path": path, "content": content, "sha": sha})
+            # Store both full and truncated content
+            lines = content.splitlines()
+            truncated = "\n".join(lines[:max_lines]) if len(lines) > max_lines else content
+            file_contents.append({"path": path, "content": content, "truncated": truncated, "sha": sha})
         except Exception as e:
-            file_contents.append({"path": path, "content": None, "error": str(e)})
+            file_contents.append({"path": path, "content": None, "truncated": None, "error": str(e)})
 
     truncated_context = []
     for fc in file_contents:
         if fc.get("content"):
-            truncated_context.append(_truncate_file(fc["content"], fc["path"]))
+            truncated_context.append(_truncate_file(fc["content"], fc["path"], max_lines=max_lines))
         else:
             truncated_context.append(f"### {fc['path']}\n(Could not fetch: {fc.get('error', 'unknown')})")
 
@@ -382,7 +388,7 @@ def _store_fix(
                 (
                     bug_internal_id,
                     f.file_path,
-                    next((fc["content"] for fc in file_contents if fc["path"] == f.file_path), None),
+                    next((fc.get("truncated") or fc.get("content") for fc in file_contents if fc["path"] == f.file_path), None),
                     f.content,
                     f.explanation,
                     model,
@@ -407,7 +413,7 @@ def _generate_patch(
     original_author: str | None = None,
 ) -> str:
     """Generate git format-patch style output."""
-    originals = {fc["path"]: fc.get("content", "") for fc in file_contents}
+    originals = {fc["path"]: (fc.get("truncated") or fc.get("content") or "") for fc in file_contents}
     now = datetime.now(timezone.utc)
     date_str = now.strftime("%a, %d %b %Y %H:%M:%S +0000")
 
