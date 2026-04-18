@@ -655,6 +655,22 @@ footer a:hover { text-decoration: underline; }
   color: var(--muted);
 }
 
+/* Rebase section */
+.rebase-section { margin-top: 2rem; }
+.rebase-section h3 { color: #d4a844; }
+.rebase-card {
+  background: var(--surface);
+  border: 1px solid #4c3b1f;
+  border-radius: 8px;
+  padding: 1.25rem;
+}
+.rebase-form { margin-top: 1rem; }
+.rebase-btn {
+  background: #d4a844;
+  color: var(--bg);
+}
+.rebase-btn:hover { filter: brightness(1.15); }
+
 /* Recommendation section */
 .recommendation-section { margin-top: 2rem; }
 .recommendation-section h3 { color: var(--accent); }

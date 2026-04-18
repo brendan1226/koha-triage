@@ -382,6 +382,9 @@ def bug_detail(request: Request, bug_internal_id: int, error: str = "") -> HTMLR
     for fix in code_fixes:
         fix["diff_lines"] = _compute_diff(fix.get("original_content") or "", fix.get("fixed_content") or "", fix.get("file_path", "unknown"))
 
+    # Check if this is a "Patch doesn't apply" bug — show rebase button
+    is_patch_doesnt_apply = "Patch doesn't apply" in (row["status"] or "")
+
     return templates.TemplateResponse(request=request, name="bug_detail.html", context={
         "bug": dict(row), "keywords": keywords,
         "comments": [dict(c) for c in bug_comments],
@@ -393,6 +396,7 @@ def bug_detail(request: Request, bug_internal_id: int, error: str = "") -> HTMLR
         "has_github_token": bool(_get_user_github_token(request)),
         "bugzilla_url": BUGZILLA_URL,
         "error": error,
+        "is_patch_doesnt_apply": is_patch_doesnt_apply,
     })
 
 
@@ -420,6 +424,19 @@ def generate_fix(request: Request, bug_internal_id: int) -> RedirectResponse:
             raise ValueError("No Anthropic API key configured.")
         from .codegen import generate_code_fix
         generate_code_fix(settings.db_path, bug_internal_id, settings.anthropic_api_key, github_token, settings.classification_model)
+    except Exception as e:
+        return RedirectResponse(f"/bugs/{bug_internal_id}?error={quote(str(e))}", status_code=303)
+    return RedirectResponse(f"/bugs/{bug_internal_id}", status_code=303)
+
+
+@app.post("/bugs/{bug_internal_id}/rebase-patch")
+def rebase_stale_patch(request: Request, bug_internal_id: int) -> RedirectResponse:
+    try:
+        github_token = _get_user_github_token(request)
+        if not settings.anthropic_api_key:
+            raise ValueError("No Anthropic API key configured.")
+        from .codegen import rebase_patch
+        rebase_patch(settings.db_path, bug_internal_id, settings.anthropic_api_key, github_token, settings.classification_model)
     except Exception as e:
         return RedirectResponse(f"/bugs/{bug_internal_id}?error={quote(str(e))}", status_code=303)
     return RedirectResponse(f"/bugs/{bug_internal_id}", status_code=303)

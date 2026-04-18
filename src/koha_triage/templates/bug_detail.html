@@ -77,6 +77,23 @@
   {% else %}<p><a href="/groups">Create a group first</a></p>{% endif %}
 </section>
 
+{# ── Rebase Stale Patch ── #}
+{% if is_patch_doesnt_apply and has_anthropic_key %}
+<section class="rebase-section">
+  <h3>Rebase Stale Patch</h3>
+  <div class="rebase-card">
+    <p>This bug has status <strong>"Patch doesn't apply"</strong> — there's an existing patch on Bugzilla that no longer applies to the current codebase.</p>
+    <p class="muted">koha-triage will fetch the original patch from Bugzilla, compare it against the current source, and produce an updated patch that applies cleanly. The original author is credited in the commit.</p>
+    {% if code_fixes and fix_meta %}
+    <p class="muted">A rebased/generated patch already exists below. You can regenerate it.</p>
+    {% endif %}
+    <form action="/bugs/{{ bug.id }}/rebase-patch" method="post" class="rebase-form">
+      <button type="submit" class="btn-primary rebase-btn">Rebase patch from Bugzilla</button>
+    </form>
+  </div>
+</section>
+{% endif %}
+
 {# ── AI Recommendation ── #}
 <section class="recommendation-section">
   <h3>AI Recommendation</h3>
