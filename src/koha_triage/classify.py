@@ -104,7 +104,11 @@ def classify(
 
     parsed = final.parsed_output
     if parsed is None:
-        return results, []
+        try:
+            text = final.content[0].text if hasattr(final.content[0], 'text') else str(final.content[0])
+            parsed = ClassifyResponse.model_validate_json(text)
+        except Exception:
+            return results, []
 
     verdicts_by_idx = {v.match_id: v for v in parsed.verdicts}
     aligned = [verdicts_by_idx.get(i + 1) for i in range(len(results))]

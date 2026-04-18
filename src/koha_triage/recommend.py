@@ -134,7 +134,8 @@ def generate_recommendation(
 
     rec = final.parsed_output
     if rec is None:
-        raise RuntimeError("Claude did not return a valid recommendation")
+        text = final.content[0].text if hasattr(final.content[0], 'text') else str(final.content[0])
+        rec = Recommendation.model_validate_json(text)
 
     now = datetime.now(timezone.utc).isoformat(timespec="seconds")
     with connect(db_path) as conn:

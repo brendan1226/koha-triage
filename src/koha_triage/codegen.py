@@ -240,7 +240,9 @@ def generate_code_fix(
 
     fix = final.parsed_output
     if fix is None:
-        raise RuntimeError("Claude did not return a valid code fix")
+        # Fallback: manually parse from response text
+        text = final.content[0].text if hasattr(final.content[0], 'text') else str(final.content[0])
+        fix = CodeFixResponse.model_validate_json(text)
 
     _store_fix(db_path, bug_internal_id, bug, fix, file_contents, model)
     return fix
@@ -345,7 +347,8 @@ def rebase_patch(
 
     fix = final.parsed_output
     if fix is None:
-        raise RuntimeError("Claude did not return a valid rebased fix")
+        text = final.content[0].text if hasattr(final.content[0], 'text') else str(final.content[0])
+        fix = CodeFixResponse.model_validate_json(text)
 
     _store_fix(
         db_path, bug_internal_id, bug, fix, file_contents, model,
