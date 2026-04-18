@@ -29,9 +29,14 @@ class QAResult(BaseModel):
 
 
 def _load_guidelines() -> str:
+    """Load only the core coding rules for QA review (not the full handbook)."""
+    core = GUIDELINES_DIR / "koha-development.md"
+    if core.exists():
+        return core.read_text()
+    # Fallback: load all (shouldn't happen)
     parts = []
     for md_file in sorted(GUIDELINES_DIR.glob("*.md")):
-        parts.append(f"# {md_file.stem}\n\n{md_file.read_text()}")
+        parts.append(md_file.read_text())
     return "\n\n---\n\n".join(parts) if parts else "(no guidelines available)"
 
 

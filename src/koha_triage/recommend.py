@@ -40,9 +40,13 @@ class Recommendation(BaseModel):
 
 
 def _load_guidelines() -> str:
+    """Load the core coding rules plus testing framework (most relevant for recommendations)."""
+    core_files = ["koha-development.md", "koha_testing_framework.md"]
     parts = []
-    for md_file in sorted(GUIDELINES_DIR.glob("*.md")):
-        parts.append(f"# {md_file.stem}\n\n{md_file.read_text()}")
+    for name in core_files:
+        path = GUIDELINES_DIR / name
+        if path.exists():
+            parts.append(f"# {path.stem}\n\n{path.read_text()}")
     return "\n\n---\n\n".join(parts) if parts else "(no guidelines available)"
 
 
