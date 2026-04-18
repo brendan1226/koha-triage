@@ -111,10 +111,37 @@ def generate_code_fix(
 
     client = anthropic.Anthropic(api_key=api_key)
 
+    # Truncate very large files to avoid blowing the context/output budget.
+    # Koha modules can be 2000+ lines — send only the first ~500 lines
+    # plus a note that the file continues. Claude only needs the relevant
+    # section to produce a targeted fix.
+    truncated_context = []
+    max_lines = 500
+    for fc in file_contents:
+        if fc.get("content"):
+            lines = fc["content"].splitlines()
+            if len(lines) > max_lines:
+                snippet = "\n".join(lines[:max_lines])
+                truncated_context.append(
+                    f"### {fc['path']} (first {max_lines} of {len(lines)} lines)\n```\n{snippet}\n```\n"
+                    f"(... {len(lines) - max_lines} more lines truncated)"
+                )
+            else:
+                truncated_context.append(f"### {fc['path']}\n```\n{fc['content']}\n```")
+        else:
+            truncated_context.append(f"### {fc['path']}\n(Could not fetch: {fc.get('error', 'unknown')})")
+
+    client = anthropic.Anthropic(api_key=api_key)
+
     response = client.messages.parse(
         model=model,
-        max_tokens=16000,
-        system=SYSTEM_PROMPT,
+        max_tokens=32000,
+        system=SYSTEM_PROMPT + (
+            "\n\nIMPORTANT: If the file is large and was truncated, produce ONLY the changed "
+            "subroutines/sections with enough surrounding context (10 lines before/after) to "
+            "locate the changes — do NOT reproduce the entire file. Keep the `content` field "
+            "as small as possible while being a valid, applicable patch."
+        ),
         messages=[
             {
                 "role": "user",
@@ -129,8 +156,8 @@ def generate_code_fix(
                     f"**Key guidelines:** {', '.join(rec.key_guidelines)}\n\n"
                     f"**Test plan:** {rec.test_plan}\n\n"
                     f"---\n\n## Current file contents\n\n"
-                    + "\n\n".join(files_context)
-                    + "\n\n---\n\nProduce the complete modified file content for each file."
+                    + "\n\n".join(truncated_context)
+                    + "\n\n---\n\nProduce the modified code for each file that needs changes."
                 ),
             }
         ],
