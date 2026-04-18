@@ -1,0 +1,101 @@
+{% extends "base.html" %}
+{% block title %}{{ title }} — koha-triage{% endblock %}
+
+{% block content %}
+<section>
+  <p class="breadcrumb">
+    <a href="/bugs">Bugs</a> ›
+    <a href="/bugs/{{ bug.id }}">Bug {{ bug.bug_id }}</a> ›
+    {{ "Apply to KTD" if script_type == "apply" else "Sign-off" }}
+  </p>
+
+  <div class="issue-header">
+    <h2>{{ title }}</h2>
+    <p class="muted">{{ bug.summary }}</p>
+  </div>
+</section>
+
+{% if script_type == "signoff" and patch_info %}
+<section>
+  <h3>Patch from Bugzilla</h3>
+  <div class="patch-info-card">
+    <p><strong>Summary:</strong> {{ patch_info.summary }}</p>
+    <p><strong>Author:</strong> {{ patch_info.creator }}</p>
+    <p><strong>Attached:</strong> {{ patch_info.date }}</p>
+  </div>
+</section>
+{% endif %}
+
+<section>
+  <h3>
+    {% if script_type == "apply" %}
+    Apply AI-generated fix to your local KTD
+    {% else %}
+    Test and sign off this patch
+    {% endif %}
+  </h3>
+  <p class="muted">Copy and run these commands in a terminal on your machine where KTD is set up. Make sure <code>$SYNC_REPO</code> points to your Koha source checkout.</p>
+
+  <div class="script-block">
+    <div class="script-header">
+      <span>bash</span>
+      <button class="btn-sm copy-btn" onclick="copyScript('main-script')">Copy</button>
+    </div>
+    <pre class="script-code" id="main-script">{{ script }}</pre>
+  </div>
+</section>
+
+{% if script_type == "signoff" and script_alt %}
+<section>
+  <h3>Alternative (without git-bz)</h3>
+  <p class="muted">If you don't have <code>git-bz</code> installed, use this version instead:</p>
+  <div class="script-block">
+    <div class="script-header">
+      <span>bash (no git-bz)</span>
+      <button class="btn-sm copy-btn" onclick="copyScript('alt-script')">Copy</button>
+    </div>
+    <pre class="script-code" id="alt-script">{{ script_alt }}</pre>
+  </div>
+</section>
+{% endif %}
+
+<section>
+  <h3>What happens next</h3>
+  {% if script_type == "apply" %}
+  <ol class="help-list">
+    <li>The script creates branch <code>bug_{{ bug.bug_id }}</code> and applies the AI-generated patch</li>
+    <li>Enter KTD: <code>ktd --shell</code></li>
+    <li>Test the fix manually and run relevant tests</li>
+    <li>Run QA: <code>/kohadevbox/qa-test-tools/koha-qa.pl -c 1 -v 2</code></li>
+    <li>If all good, attach to Bugzilla: <code>git bz attach {{ bug.bug_id }} HEAD</code></li>
+  </ol>
+  {% else %}
+  <ol class="help-list">
+    <li>The script applies the community patch on branch <code>bug_{{ bug.bug_id }}</code></li>
+    <li>Enter KTD and test thoroughly</li>
+    <li>Run QA tools: <code>/kohadevbox/qa-test-tools/koha-qa.pl -c 1 -v 2</code></li>
+    <li>Sign off: <code>git commit --amend -s</code></li>
+    <li>Push back: <code>git bz attach {{ bug.bug_id }} HEAD</code></li>
+    <li>Update bug status to "Signed Off" on Bugzilla</li>
+  </ol>
+  <p class="muted">If the patch doesn't apply, go back to the <a href="/bugs/{{ bug.id }}">bug detail page</a> and use the "Rebase patch" feature to generate an updated version.</p>
+  {% endif %}
+</section>
+
+<section>
+  <div class="ktd-back-actions">
+    <a href="/bugs/{{ bug.id }}" class="btn-secondary" style="text-decoration:none">← Back to Bug {{ bug.bug_id }}</a>
+  </div>
+</section>
+
+<script>
+function copyScript(id) {
+  var el = document.getElementById(id);
+  navigator.clipboard.writeText(el.textContent).then(function() {
+    var btns = el.parentElement.querySelectorAll('.copy-btn');
+    btns.forEach(function(b) { b.textContent = 'Copied!'; });
+    setTimeout(function() { btns.forEach(function(b) { b.textContent = 'Copy'; }); }, 2000);
+  });
+}
+</script>
+{% endblock %}

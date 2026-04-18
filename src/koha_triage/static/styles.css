@@ -693,6 +693,75 @@ footer a:hover { text-decoration: underline; }
   color: var(--muted);
 }
 
+/* KTD button */
+.btn-ktd {
+  padding: 0.6rem 1.25rem;
+  background: #6366f1;
+  color: #fff;
+  border: none;
+  border-radius: 6px;
+  font-weight: 600;
+  cursor: pointer;
+  font-size: 0.95rem;
+  display: inline-block;
+}
+.btn-ktd:hover { filter: brightness(1.15); }
+
+/* KTD script page */
+.script-block {
+  background: #1a1a2e;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  overflow: hidden;
+  margin: 1rem 0;
+}
+.script-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 0.5rem 1rem;
+  background: var(--border);
+  font-size: 0.82rem;
+  color: var(--muted);
+}
+.copy-btn { margin-left: auto; }
+.script-code {
+  padding: 1rem;
+  margin: 0;
+  font-family: ui-monospace, Menlo, Consolas, monospace;
+  font-size: 0.85rem;
+  line-height: 1.6;
+  color: var(--fg);
+  overflow-x: auto;
+  white-space: pre;
+}
+
+/* Patch info card */
+.patch-info-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 0.75rem 1rem;
+}
+.patch-info-card p { margin: 0.2rem 0; font-size: 0.9rem; }
+
+/* Sign-off section */
+.signoff-section { margin-top: 2rem; }
+.signoff-section h3 { color: #6366f1; }
+.signoff-card {
+  background: var(--surface);
+  border: 1px solid #3b3e88;
+  border-radius: 8px;
+  padding: 1.25rem;
+}
+.signoff-actions {
+  display: flex;
+  gap: 0.75rem;
+  margin-top: 1rem;
+}
+
+.ktd-back-actions { margin-top: 1rem; }
+
 /* About page */
 .about-hero { text-align: center; margin-bottom: 1rem; }
 .about-tagline { color: var(--muted); font-size: 1.1rem; margin-top: 0.25rem; }

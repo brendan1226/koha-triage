@@ -167,7 +167,8 @@
       <button type="submit" class="btn-secondary">↻ Regenerate code</button>
     </form>
     {% if fix_meta.patch_data %}
-    <a href="/bugs/{{ bug.id }}/patch" class="btn-primary" style="text-decoration:none">Download patch for git bz attach</a>
+    <a href="/bugs/{{ bug.id }}/patch" class="btn-primary" style="text-decoration:none">Download patch</a>
+    <a href="/bugs/{{ bug.id }}/ktd-apply" class="btn-ktd" style="text-decoration:none">Send to KTD</a>
     {% endif %}
   </div>
 
@@ -179,6 +180,20 @@
   {% else %}
   <p class="muted">Set <code>KOHA_TRIAGE_ANTHROPIC_API_KEY</code> and optionally <code>KOHA_TRIAGE_GITHUB_TOKEN</code> to enable code generation.</p>
   {% endif %}
+</section>
+{% endif %}
+
+{# ── Sign-off / QA Workflow ── #}
+{% if bug.status in ['Needs Signoff', 'ASSIGNED'] or 'Needs Signoff' in (bug.status or '') %}
+<section class="signoff-section">
+  <h3>Sign-off Workflow</h3>
+  <div class="signoff-card">
+    <p>This bug has a patch waiting for sign-off. Use KTD to test it locally and sign off.</p>
+    <div class="signoff-actions">
+      <a href="/bugs/{{ bug.id }}/ktd-signoff" class="btn-ktd" style="text-decoration:none">Test in KTD for Sign-off</a>
+      <a href="{{ bug.url }}" class="btn-secondary" style="text-decoration:none">View on Bugzilla ↗</a>
+    </div>
+  </div>
 </section>
 {% endif %}
 {% endblock %}
