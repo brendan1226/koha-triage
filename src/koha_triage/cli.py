@@ -124,6 +124,7 @@ def serve(
 @app.command()
 def embed(
     batch_size: int = typer.Option(32, "--batch-size", help="Texts per embedding batch."),
+    chunk_size: int = typer.Option(500, "--chunk-size", help="Bugs per chunk (saves after each chunk)."),
 ) -> None:
     """Compute embeddings for bugs whose summary/description changed since the last run."""
     from .embed import embed_pending
@@ -132,9 +133,11 @@ def embed(
         if stage == "loading_model":
             console.print(f"[cyan]Loading embedding model {payload}...[/cyan]")
         elif stage == "embedding":
-            console.print(f"[cyan]Embedding {payload} bugs...[/cyan]")
+            console.print(f"[cyan]Embedding {payload} bugs in chunks of {chunk_size}...[/cyan]")
+        elif stage == "chunk_done":
+            console.print(f"  [dim]saved {payload}[/dim]")
 
-    counts = embed_pending(settings.db_path, settings.embedding_model, batch_size, on_progress=on_progress)
+    counts = embed_pending(settings.db_path, settings.embedding_model, batch_size, chunk_size=chunk_size, on_progress=on_progress)
     console.print(
         f"[green]Embedded {counts['embedded']} / {counts['total']}  "
         f"(skipped {counts['skipped']} unchanged)[/green]"

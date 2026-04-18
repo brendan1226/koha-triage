@@ -41,8 +41,14 @@ def embed_pending(
     db_path: Path,
     model_name: str,
     batch_size: int = 32,
+    chunk_size: int = 500,
     on_progress=None,
 ) -> dict:
+    """Embed bugs in chunks to keep memory usage bounded.
+
+    chunk_size controls how many bugs are processed and saved per round.
+    batch_size controls texts per fastembed batch within each chunk.
+    """
     init_db(db_path)
     embedded_at = _utc_now_iso()
     counts = {"embedded": 0, "skipped": 0, "total": 0}
@@ -66,28 +72,43 @@ def embed_pending(
             pending_texts.append(text)
             pending_hashes.append(h)
 
-        if not pending_ids:
-            return counts
+    if not pending_ids:
+        return counts
 
-        if on_progress is not None:
-            on_progress("loading_model", model_name)
-        model = TextEmbedding(model_name=model_name)
+    if on_progress is not None:
+        on_progress("loading_model", model_name)
+    model = TextEmbedding(model_name=model_name)
 
-        if on_progress is not None:
-            on_progress("embedding", len(pending_ids))
+    if on_progress is not None:
+        on_progress("embedding", len(pending_ids))
 
-        vectors = list(model.embed(pending_texts, batch_size=batch_size))
+    # Process in chunks to avoid OOM on small machines
+    total_pending = len(pending_ids)
+    for chunk_start in range(0, total_pending, chunk_size):
+        chunk_end = min(chunk_start + chunk_size, total_pending)
+        chunk_texts = pending_texts[chunk_start:chunk_end]
+        chunk_ids = pending_ids[chunk_start:chunk_end]
+        chunk_hashes = pending_hashes[chunk_start:chunk_end]
+
+        vectors = list(model.embed(chunk_texts, batch_size=batch_size))
         matrix = _normalize(np.array(vectors, dtype=np.float32))
 
-        for i, bug_id in enumerate(pending_ids):
-            conn.execute(
-                """
-                UPDATE bugs
-                SET embedding = ?, embedded_at = ?, embed_text_hash = ?
-                WHERE id = ?
-                """,
-                (_serialize_embedding(matrix[i]), embedded_at, pending_hashes[i], bug_id),
-            )
-            counts["embedded"] += 1
+        with connect(db_path) as conn:
+            for i, bug_id in enumerate(chunk_ids):
+                conn.execute(
+                    """
+                    UPDATE bugs
+                    SET embedding = ?, embedded_at = ?, embed_text_hash = ?
+                    WHERE id = ?
+                    """,
+                    (_serialize_embedding(matrix[i]), embedded_at, chunk_hashes[i], bug_id),
+                )
+                counts["embedded"] += 1
+
+        if on_progress is not None:
+            on_progress("chunk_done", f"{chunk_end}/{total_pending}")
+
+        # Free memory before next chunk
+        del vectors, matrix
 
     return counts
