@@ -102,10 +102,7 @@
 
     <div class="qa-actions">
       {% if has_bugzilla_key %}
-      <form action="/bugs/{{ bug.id }}/post-qa-comment" method="post" class="inline-form"
-            onsubmit="return confirm('This will post the QA review as a comment on Bugzilla. Continue?')">
-        <button type="submit" class="btn-primary">Post to Bugzilla as comment</button>
-      </form>
+      <a href="/bugs/{{ bug.id }}/post-qa-comment" class="btn-primary" style="text-decoration:none">Preview + Post to Bugzilla</a>
       {% else %}
       <p class="muted">Set <code>KOHA_TRIAGE_BUGZILLA_API_KEY</code> to enable posting comments to Bugzilla.</p>
       {% endif %}

@@ -798,6 +798,36 @@ footer a:hover { text-decoration: underline; }
   flex-wrap: wrap;
 }
 
+/* Preview form (post to Bugzilla) */
+.preview-form { margin-top: 1rem; }
+.preview-label {
+  display: block;
+  font-weight: 600;
+  font-size: 0.9rem;
+  margin-bottom: 0.4rem;
+  color: var(--fg);
+}
+.preview-textarea {
+  width: 100%;
+  padding: 0.75rem;
+  background: var(--surface);
+  color: var(--fg);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  font-family: ui-monospace, Menlo, Consolas, monospace;
+  font-size: 0.88rem;
+  line-height: 1.5;
+  resize: vertical;
+  min-height: 400px;
+}
+.preview-textarea:focus { outline: none; border-color: var(--accent); }
+.preview-actions {
+  display: flex;
+  gap: 0.75rem;
+  align-items: center;
+  margin-top: 1rem;
+}
+
 /* AI loading overlay */
 .ai-overlay {
   position: fixed;

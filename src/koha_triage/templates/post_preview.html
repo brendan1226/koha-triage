@@ -1,0 +1,37 @@
+{% extends "base.html" %}
+{% block title %}Preview post to {{ target_name }} — koha-triage{% endblock %}
+
+{% block content %}
+{% if error %}
+<div class="error-flash">{{ error }}</div>
+{% endif %}
+
+<section>
+  <p class="breadcrumb">
+    <a href="{{ back_url }}">← back to Bug {{ bug.bug_id }}</a>
+  </p>
+  <div class="issue-header">
+    <h2>Preview comment to post on <a href="{{ target_link_url }}">{{ target_link_text }}</a></h2>
+    <p class="muted">Review the text below. You can edit it before posting. This will be visible publicly on {{ target_name }}.</p>
+  </div>
+</section>
+
+<section>
+  <form action="{{ action_url }}" method="post" class="preview-form">
+    <label for="comment" class="preview-label">Comment body</label>
+    <textarea id="comment" name="comment" class="preview-textarea" rows="30" required>{{ comment_text }}</textarea>
+
+    <div class="preview-actions">
+      <a href="{{ back_url }}" class="btn-secondary" style="text-decoration:none">Cancel</a>
+      {% if has_auth %}
+      <button type="submit" class="btn-primary"
+              onclick="return confirm('Post this comment to {{ target_name }}? It will be publicly visible.')">
+        Post to {{ target_name }}
+      </button>
+      {% else %}
+      <span class="muted">Add {{ target_name }} credentials to enable posting.</span>
+      {% endif %}
+    </div>
+  </form>
+</section>
+{% endblock %}

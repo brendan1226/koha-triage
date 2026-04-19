@@ -590,45 +590,76 @@ def run_qa_review(request: Request, bug_internal_id: int, patch_index: int = For
     return RedirectResponse(f"/bugs/{bug_internal_id}/patches?qa_done=1", status_code=303)
 
 
+def _build_qa_comment_text(bug_internal_id: int, request: Request) -> tuple[dict, str]:
+    from .qa_review import format_qa_comment, QAResult
+
+    with connect(settings.db_path) as conn:
+        qa_row = conn.execute(
+            "SELECT * FROM qa_reviews WHERE bug_id = ? ORDER BY created_at DESC LIMIT 1",
+            (bug_internal_id,),
+        ).fetchone()
+        bug = conn.execute("SELECT * FROM bugs WHERE id = ?", (bug_internal_id,)).fetchone()
+
+    if bug is None:
+        raise ValueError("Bug not found")
+    if qa_row is None:
+        raise ValueError("No QA review found. Run one first.")
+
+    result = QAResult.model_validate_json(qa_row["review_json"])
+    user = request.state.user
+    reviewer_name = user.get("name", "koha-triage") if user else "koha-triage"
+    reviewer_email = user.get("email", "koha-triage@bywatersolutions.com") if user else "koha-triage@bywatersolutions.com"
+
+    comment_text = format_qa_comment(result, bug["bug_id"], reviewer_name, reviewer_email)
+    return dict(bug), comment_text
+
+
+@app.get("/bugs/{bug_internal_id}/post-qa-comment", response_class=HTMLResponse)
+def preview_qa_comment(request: Request, bug_internal_id: int, error: str = "") -> HTMLResponse:
+    """Show an editable preview of the QA comment before posting to Bugzilla."""
+    try:
+        bug, comment_text = _build_qa_comment_text(bug_internal_id, request)
+    except Exception as e:
+        return RedirectResponse(f"/bugs/{bug_internal_id}/patches?error={quote(str(e))}", status_code=303)
+
+    return templates.TemplateResponse(request=request, name="post_preview.html", context={
+        "bug": bug,
+        "comment_text": comment_text,
+        "action_url": f"/bugs/{bug_internal_id}/post-qa-comment",
+        "back_url": f"/bugs/{bug_internal_id}/patches",
+        "target_name": "Bugzilla",
+        "target_link_text": f"Bug {bug['bug_id']}",
+        "target_link_url": bug["url"],
+        "has_auth": bool(settings.bugzilla_api_key),
+        "error": error,
+    })
+
+
 @app.post("/bugs/{bug_internal_id}/post-qa-comment")
-def post_qa_comment(request: Request, bug_internal_id: int) -> RedirectResponse:
-    """Post the QA review as a comment on Bugzilla."""
+def post_qa_comment(request: Request, bug_internal_id: int, comment: str = Form(...)) -> RedirectResponse:
+    """Post the (possibly edited) QA review as a comment on Bugzilla."""
     if not settings.bugzilla_api_key:
         return RedirectResponse(f"/bugs/{bug_internal_id}/patches?error=No+Bugzilla+API+key+configured", status_code=303)
 
     try:
-        import json
-        from .qa_review import format_qa_comment, QAResult
-
         with connect(settings.db_path) as conn:
-            qa_row = conn.execute(
-                "SELECT * FROM qa_reviews WHERE bug_id = ? ORDER BY created_at DESC LIMIT 1",
-                (bug_internal_id,),
-            ).fetchone()
-            bug = conn.execute("SELECT * FROM bugs WHERE id = ?", (bug_internal_id,)).fetchone()
+            bug = conn.execute("SELECT bug_id FROM bugs WHERE id = ?", (bug_internal_id,)).fetchone()
+        if bug is None:
+            raise ValueError("Bug not found")
+        if not comment.strip():
+            raise ValueError("Comment cannot be empty.")
 
-        if qa_row is None:
-            raise ValueError("No QA review found. Run one first.")
-
-        result = QAResult.model_validate_json(qa_row["review_json"])
-        user = request.state.user
-        reviewer_name = user.get("name", "koha-triage") if user else "koha-triage"
-        reviewer_email = user.get("email", "koha-triage@bywatersolutions.com") if user else "koha-triage@bywatersolutions.com"
-
-        comment_text = format_qa_comment(result, bug["bug_id"], reviewer_name, reviewer_email)
-
-        # Post to Bugzilla REST API
         import httpx
         resp = httpx.post(
             f"{BUGZILLA_URL}/rest/bug/{bug['bug_id']}/comment",
-            json={"comment": comment_text, "Bugzilla_api_key": settings.bugzilla_api_key},
+            json={"comment": comment, "Bugzilla_api_key": settings.bugzilla_api_key},
             headers={"Accept": "application/json"},
             timeout=30.0,
         )
         resp.raise_for_status()
 
     except Exception as e:
-        return RedirectResponse(f"/bugs/{bug_internal_id}/patches?error={quote(str(e))}", status_code=303)
+        return RedirectResponse(f"/bugs/{bug_internal_id}/post-qa-comment?error={quote(str(e))}", status_code=303)
 
     return RedirectResponse(f"/bugs/{bug_internal_id}/patches?qa_done=1", status_code=303)
 
