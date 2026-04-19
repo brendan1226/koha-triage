@@ -16,6 +16,78 @@ console = Console()
 
 
 @app.command()
+def export(
+    output: str = typer.Option("koha-triage-export.json", "--output", "-o", help="Output JSON file."),
+    include_embeddings: bool = typer.Option(False, "--include-embeddings", help="Include raw embedding vectors (much larger)."),
+) -> None:
+    """Export all bugs, comments, and AI-generated content to a single JSON file."""
+    import json
+    from datetime import datetime, timezone
+
+    init_db(settings.db_path)
+
+    with connect(settings.db_path) as conn:
+        bugs = [dict(r) for r in conn.execute("SELECT * FROM bugs ORDER BY bug_id").fetchall()]
+        comments = [dict(r) for r in conn.execute("SELECT * FROM comments ORDER BY bug_id, count").fetchall()]
+        recs = [dict(r) for r in conn.execute("SELECT * FROM recommendations").fetchall()]
+        code_fixes = [dict(r) for r in conn.execute("SELECT * FROM code_fixes").fetchall()]
+        fix_meta = [dict(r) for r in conn.execute("SELECT * FROM code_fix_meta").fetchall()]
+        qa_reviews = [dict(r) for r in conn.execute("SELECT * FROM qa_reviews").fetchall()]
+        groups = [dict(r) for r in conn.execute("SELECT * FROM groups").fetchall()]
+        group_members = [dict(r) for r in conn.execute("SELECT * FROM group_members").fetchall()]
+
+    comments_by_bug: dict[int, list[dict]] = {}
+    for c in comments:
+        comments_by_bug.setdefault(c["bug_id"], []).append(c)
+
+    recs_by_bug = {r["bug_id"]: r for r in recs}
+    fixes_by_bug: dict[int, list[dict]] = {}
+    for f in code_fixes:
+        fixes_by_bug.setdefault(f["bug_id"], []).append(f)
+    fix_meta_by_bug = {f["bug_id"]: f for f in fix_meta}
+    qa_by_bug: dict[int, list[dict]] = {}
+    for q in qa_reviews:
+        qa_by_bug.setdefault(q["bug_id"], []).append(q)
+
+    enriched_bugs = []
+    for b in bugs:
+        internal_id = b["id"]
+        if not include_embeddings:
+            b.pop("embedding", None)
+        b["comments"] = comments_by_bug.get(internal_id, [])
+        rec = recs_by_bug.get(internal_id)
+        if rec:
+            try:
+                rec["recommendation"] = json.loads(rec["recommendation"])
+            except Exception:
+                pass
+        b["ai_recommendation"] = rec
+        b["ai_code_fixes"] = fixes_by_bug.get(internal_id, [])
+        b["ai_fix_meta"] = fix_meta_by_bug.get(internal_id)
+        b["ai_qa_reviews"] = qa_by_bug.get(internal_id, [])
+        enriched_bugs.append(b)
+
+    export_data = {
+        "source": "koha-triage",
+        "bugzilla_url": "https://bugs.koha-community.org/bugzilla3",
+        "exported_at": datetime.now(timezone.utc).isoformat(timespec="seconds"),
+        "total_bugs": len(enriched_bugs),
+        "total_comments": len(comments),
+        "bugs": enriched_bugs,
+        "groups": [
+            {**g, "member_bug_ids": [m["bug_id"] for m in group_members if m["group_id"] == g["id"]]}
+            for g in groups
+        ],
+    }
+
+    with open(output, "w") as f:
+        json.dump(export_data, f, indent=2, default=str)
+
+    size_mb = len(json.dumps(export_data, default=str)) / 1024 / 1024
+    console.print(f"[green]Exported {len(enriched_bugs)} bugs, {len(comments)} comments to {output} ({size_mb:.1f} MB)[/green]")
+
+
+@app.command()
 def harvest(
     years_back: int = typer.Option(5, "--years", help="How many years back to fetch (first run only)."),
 ) -> None:
