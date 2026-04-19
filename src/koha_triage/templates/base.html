@@ -39,5 +39,85 @@
       · <a href="https://bugs.koha-community.org/bugzilla3/">Koha Bugzilla</a>
     </p>
   </footer>
+
+  {# ── AI loading overlay ── #}
+  <div id="ai-overlay" class="ai-overlay" aria-hidden="true">
+    <div class="ai-overlay-card">
+      <div class="ai-spinner">
+        <div class="ai-spinner-ring"></div>
+        <div class="ai-spinner-ring"></div>
+        <div class="ai-spinner-ring"></div>
+      </div>
+      <h3 id="ai-overlay-title">Claude is thinking...</h3>
+      <p id="ai-overlay-msg" class="muted">This can take 30–90 seconds. Feel free to stretch.</p>
+      <div class="ai-tips">
+        <span id="ai-tip"></span>
+      </div>
+    </div>
+  </div>
+
+  <script>
+  (function() {
+    const AI_ENDPOINTS = [
+      { match: /\/recommend$/, title: 'Generating recommendation…', msg: 'Claude is reading the bug, comments, and Koha coding guidelines.' },
+      { match: /\/generate-fix$/, title: 'Generating code fix…', msg: 'Claude is fetching the relevant files and writing the fix. This can take 30–90 seconds.' },
+      { match: /\/qa-review$/, title: 'Running AI QA review…', msg: 'Claude is reviewing the patch against Koha coding guidelines.' },
+      { match: /\/rebase-patch$/, title: 'Rebasing patch…', msg: 'Fetching the original patch from Bugzilla and rebasing against current code.' },
+      { match: /\/post-qa-comment$/, title: 'Posting QA comment to Bugzilla…', msg: 'Submitting the QA review to bugs.koha-community.org.' },
+    ];
+
+    const TIPS = [
+      'Tip: The AI recommendation uses Koha\'s coding guidelines and handbook to steer the fix.',
+      'Tip: Always review the generated patch before attaching to Bugzilla.',
+      'Tip: Enter a bug number in the search bar to jump straight to that bug.',
+      'Tip: "Rebase stale patch" works on bugs with status "Patch doesn\'t apply".',
+      'Fun fact: Semantic search finds bugs by meaning, not keywords.',
+    ];
+
+    const overlay = document.getElementById('ai-overlay');
+    const titleEl = document.getElementById('ai-overlay-title');
+    const msgEl = document.getElementById('ai-overlay-msg');
+    const tipEl = document.getElementById('ai-tip');
+    let tipTimer = null;
+
+    function rotateTips() {
+      let i = Math.floor(Math.random() * TIPS.length);
+      tipEl.textContent = TIPS[i];
+      tipTimer = setInterval(() => {
+        i = (i + 1) % TIPS.length;
+        tipEl.style.opacity = '0';
+        setTimeout(() => {
+          tipEl.textContent = TIPS[i];
+          tipEl.style.opacity = '1';
+        }, 300);
+      }, 6000);
+    }
+
+    function showOverlay(title, msg) {
+      titleEl.textContent = title;
+      msgEl.textContent = msg;
+      overlay.classList.add('visible');
+      rotateTips();
+    }
+
+    document.addEventListener('submit', function(e) {
+      const form = e.target;
+      if (!form || !form.action) return;
+      for (const ep of AI_ENDPOINTS) {
+        if (ep.match.test(form.action)) {
+          showOverlay(ep.title, ep.msg);
+          form.querySelectorAll('button[type="submit"]').forEach(b => b.disabled = true);
+          break;
+        }
+      }
+    });
+
+    window.addEventListener('pageshow', function() {
+      overlay.classList.remove('visible');
+      if (tipTimer) { clearInterval(tipTimer); tipTimer = null; }
+      document.querySelectorAll('button[type="submit"]').forEach(b => b.disabled = false);
+    });
+  })();
+  </script>
 </body>
 </html>
